@@ -185,7 +185,12 @@ export function showCopyrightsModal() {
       </div>
       <div class="modal-body">
         <p><strong>Website License</strong></p>
-        <p>Copyright (c) 2025 Kahulugan. Licensed under the <a href="/LICENSE" target="_blank" rel="noopener noreferrer">MIT License</a>.</p>
+        <p>
+          Source code is licensed under the <a href="/LICENSE" target="_blank" rel="noopener noreferrer">MIT License</a>.
+          MIT is a permissive license: you may use, copy, modify, and distribute the software, provided the original copyright notice and permission notice are included.
+        </p>
+        <p><strong>Source code</strong></p>
+        <p><a href="https://github.com/vancehenricks/kahulugan" target="_blank" rel="noopener noreferrer">github.com/vancehenricks/kahulugan</a></p>
         <hr />
         <p><strong>Data Attribution</strong></p>
         <p>
