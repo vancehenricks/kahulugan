@@ -67,16 +67,6 @@ Stop:
 make down
 ```
 
-
-## Code map
-
-- Backend: `src/` (search, embeddings, LLM, handlers)
-- Client: `client/src/` (modules, styles, UI)
-- Docker & importer: `docker/`, `docker/importer/`, `scripts/`
-- Server images & entrypoints: `server/`
-
-
-
 ## License & data
 
 - Code: MIT (see `LICENSE`)
