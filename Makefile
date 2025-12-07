@@ -2,7 +2,7 @@ DC = docker compose -f docker-compose.yml
 
 POSTGRES_USER	?= postgres
 POSTGRES_DB	?= ragdb
-INPUT_FILE	?= ./output/embeddings/embeddings.jsonl
+INPUT_FILE	?= rag-data/embeddings.jsonl
 
 .PHONY: help build up down restart logs psql importer rebuild clean server build-client client-dev lint format copy-files dev-up dev-down dev-logs dev-shell
 
