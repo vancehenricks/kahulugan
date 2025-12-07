@@ -117,11 +117,20 @@ Quick start (development)
    Using an existing /rag-data/ directory (recommended)
    -----------------------------------------------
 
+Download the sample /rag-data bundle
+----------------------------------
+
    If your host system already has a dataset at `/rag-data/` (for example shared on a VM or cloud host) containing:
 
    - `app-data/` (persistent app state),
    - `embeddings.jsonl` (precomputed embeddings), and
    - `corpus/` (text corpus)
+
+   If you don't yet have a `/rag-data/` bundle to use, a curated sample dataset is available for download here:
+
+   [Sample rag-data (drive)](https://drive.google.com/drive/folders/1pp5TWPsb_-vfxDCFhMCLFbR5qnA7CiTD?usp=sharing)
+
+   This folder contains a recommended layout (app-data/, corpus/, embeddings.jsonl) so it can be mounted directly into your host at `/rag-data/` and used with the examples above. Keep any sensitive data out of public shares and verify contents before deploying.
 
    you can point the service and importer to those paths instead of duplicating data in the repo. The Docker compose setup supports three environment variables which are bound into the container:
 

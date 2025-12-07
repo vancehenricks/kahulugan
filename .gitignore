@@ -1,6 +1,7 @@
 /input/
 /node_modules/
 /output/
+/rag-data/
 /sample/
 /reject/
 .env
