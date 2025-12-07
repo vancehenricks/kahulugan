@@ -194,11 +194,11 @@ export function showCopyrightsModal() {
         <hr />
         <p><strong>Data Attribution</strong></p>
         <p>
-          Primary source: <a href="https://lawphil.net" target="_blank" rel="noopener noreferrer">Lawphil Project</a> (scraped).
+          Primary source: <a href="https://lawphil.net" target="_blank" rel="noopener noreferrer">Lawphil Project</a>.
           Additional processing and contributions by <a href="https://extra.bayanwat.ch" target="_blank" rel="noopener noreferrer">extra.bayanwat.ch</a>.
         </p>
         <p>Where applicable, Lawphil content is licensed under the <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener noreferrer">Creative Commons Attribution‑NonCommercial 4.0 Philippine License</a>.</p>
-        <p>Statutes, issuances, and court decisions are works of the Philippine Government. Kahulugan is not affiliated with, sponsored by, or endorsed by the Arellano Law Foundation or the Lawphil Project.</p>
+        <p>Statutes, issuances, and court decisions are works of the Philippine Government. Kahulugan is not affiliated with, sponsored by, or endorsed by extra.bayanwat.ch / Bayanwatch, the Arellano Law Foundation, or the Lawphil Project.</p>
       </div>
       <div class="modal-footer">
         <button id="copyrightsOk" class="modal-btn modal-btn-confirm" type="button">Close</button>
