@@ -87,8 +87,8 @@ Quick start (development)
 
    ```bash
    make setup-db
-   # or use INPUT_FILE to import embeddings when available
-   INPUT_FILE=./output/embeddings/embeddings.jsonl make importer
+   # or use INPUT_FILE to import embeddings when available (recommended path on host: /rag-data)
+   INPUT_FILE=/rag-data/embeddings.jsonl RAG_CORPUS_PATH=/rag-data/corpus make importer
    ```
 
    - Dump and restore helpers (run from the repository root):
