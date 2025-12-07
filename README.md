@@ -2,7 +2,6 @@
 
 AI-powered legal research chatbot for Philippine legal materials.
 
----
 
 ## Requirements
 
