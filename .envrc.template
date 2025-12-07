@@ -12,6 +12,5 @@ export RAG_HOST=0.0.0.0
 export DOWNSAMPLE_DIM=1536
 export USE_LLM_SNIPPET=true
 export HARD_LIMIT=100
-## Path to embeddings JSONL on host. Recommended default (host-mounted): /rag-data/embeddings.jsonl
 export INPUT_FILE="/rag-data/embeddings.jsonl"
 export APP_DATA_PATH="/rag-data/app-data"
