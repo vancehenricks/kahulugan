@@ -46,14 +46,6 @@ npm install                     # repo root (server + tooling)
 cd client && npm install && npm run prepare
 ```
 
-3) Optional: database + importer
-
-```bash
-make setup-db
-INPUT_FILE=/rag-data/embeddings.jsonl RAG_CORPUS_PATH=/rag-data/corpus make importer
-```
-
-
 ## Run
 
 ```bash
