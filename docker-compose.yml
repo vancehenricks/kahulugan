@@ -1,0 +1,116 @@
+x-app-base: &app_base
+  build:
+    context: .
+    dockerfile: docker/server/Dockerfile
+    args:
+      INSTALL_DEV: ${INSTALL_DEV:-false}
+  # Keep the environment mapping as its own anchor so services can merge
+  # and extend it rather than replacing the entire block (which will drop
+  # keys like OPENROUTER_KEY if overwritten).
+  environment: &app_environment
+    PGHOST: ${PGHOST}
+    PGPORT: ${PGPORT}
+    PGUSER: ${PGUSER}
+    PGPASSWORD: ${PGPASSWORD}
+    PGDATABASE: ${PGDATABASE}
+    RAG_HOST: ${RAG_HOST}
+    RAG_PORT: ${RAG_PORT}
+    OPENROUTER_KEY: ${OPENROUTER_KEY}
+    HARD_LIMIT: ${HARD_LIMIT}
+    DATABASE_URL: "postgres://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"
+    INPUT_FILE: /app/input/embeddings.jsonl
+    RAG_CORPUS_PATH: /app/corpus
+    DOWNSAMPLE_DIM: ${DOWNSAMPLE_DIM}
+    NODE_ENV: ${NODE_ENV:-production}
+services:
+  postgres:
+    build:
+      context: ./docker/postgres
+      dockerfile: Dockerfile
+    environment:
+      POSTGRES_USER: ${PGUSER}
+      POSTGRES_PASSWORD: ${PGPASSWORD}
+      POSTGRES_DB: ${PGDATABASE}
+      PGPORT: ${PGPORT}
+    ports:
+      - "${PGPORT}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  app:
+    <<: *app_base
+    environment:
+      <<: *app_environment
+      RUN_SETUP_DB_ON_START: ${RUN_SETUP_DB_ON_START:-true}
+    ports:
+      - "${RAG_PORT}:${RAG_PORT}"
+    volumes:
+      - ${INPUT_FILE}:/app/input/embeddings.jsonl:ro
+      - ${RAG_CORPUS_PATH}:/app/corpus:ro
+      - ${APP_DATA_PATH}:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  importer:
+    build:
+      context: .
+      dockerfile: docker/importer/Dockerfile
+      args:
+        INSTALL_DEV: ${INSTALL_DEV:-false}
+    environment:
+      PGHOST: ${PGHOST}
+      PGPORT: ${PGPORT}
+      PGUSER: ${PGUSER}
+      PGPASSWORD: ${PGPASSWORD}
+      PGDATABASE: ${PGDATABASE}
+      DATABASE_URL: "postgres://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"
+      INPUT_FILE: /app/input/embeddings.jsonl
+      RAG_CORPUS_PATH: /app/corpus
+      NODE_ENV: ${NODE_ENV:-production}
+    profiles: ["importer"]
+    volumes:
+      - ${INPUT_FILE}:/app/input/embeddings.jsonl:ro
+      - ${RAG_CORPUS_PATH}:/app/corpus:ro
+      - ${APP_DATA_PATH}:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  # Development-only variant that mounts local workspace into /app for live edits.
+  # Start with: `docker compose --profile dev up app-dev postgres` or via Makefile dev-up.
+  app-dev:
+    <<: *app_base
+    profiles: ["dev"]
+    build:
+      context: .
+      dockerfile: docker/server/Dockerfile
+      args:
+        INSTALL_DEV: "true"
+    environment:
+      <<: *app_environment
+      NODE_ENV: development
+      RUN_SETUP_DB_ON_START: ${RUN_SETUP_DB_ON_START:-false}
+    ports:
+      - "${RAG_PORT}:${RAG_PORT}"
+    volumes:
+      - ./:/app
+      - ${INPUT_FILE}:/app/input/embeddings.jsonl:ro
+      - ${RAG_CORPUS_PATH}:/app/corpus:ro
+      - ${APP_DATA_PATH}:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+    driver: local

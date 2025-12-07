@@ -1,0 +1,71 @@
+.main-container {
+  display: flex;
+  height: 100vh;
+  max-width: 100vw;
+  overflow: hidden;
+  background: linear-gradient(180deg, #071023 0%, #031022 100%);
+}
+
+.chatbot-container {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin: 28px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.6);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.02),
+    rgba(255, 255, 255, 0.01)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  max-width: none;
+}
+
+.chat-input-container {
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  padding: 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.005), transparent);
+}
+
+.chat-form {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  align-items: flex-end;
+}
+
+/* File Viewer */
+.file-viewer-container {
+  width: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(11, 18, 32, 0.8),
+    rgba(7, 16, 33, 0.9)
+  );
+  border-left: 1px solid rgba(255, 255, 255, 0.05);
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+  transition: width 0.3s ease;
+}
+
+.file-viewer-container.visible {
+  display: flex;
+  width: 60%;
+}
+
+.file-viewer-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Footer removed per user request (styles previously here were deleted) */

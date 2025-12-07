@@ -1,0 +1,47 @@
+{
+  "name": "rag-project-1",
+  "version": "1.0.0",
+  "description": "",
+  "repository": {
+    "type": "git",
+    "url": "git@vancehenricks.github.com:vancehenricks/rag-project-1.git"
+  },
+  "author": "Vance Henricks G. Patual",
+  "license": "MIT",
+  "type": "commonjs",
+  "main": "",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "nodemon --watch src --ext js,mjs --exec node server.mjs"
+  },
+  "dependencies": {
+    "@xenova/transformers": "^2.17.2",
+    "cheerio": "^1.1.2",
+    "en": "^1.0.1",
+    "eslint-config-prettier": "^10.1.8",
+    "iconv-lite": "^0.7.0",
+    "jschardet": "^3.1.4",
+    "jsdom": "^27.2.0",
+    "node-tesseract-ocr": "^2.2.1",
+    "openai": "^6.8.1",
+    "pdf-parse-new": "^1.4.1",
+    "pdf2pic": "^2.1.4",
+    "pg": "^8.16.3",
+    
+    "uuid": "^13.0.0",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "eslint-plugin-import": "^2.32.0",
+    "nodemon": "^2.0.22"
+  },
+  "lint-staged": {
+    "*.{js,mjs}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,css,md}": [
+      "prettier --write"
+    ]
+  }
+}

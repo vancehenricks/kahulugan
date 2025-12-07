@@ -1,0 +1,16 @@
+node_modules
+client/node_modules
+dist
+client/dist
+.git
+.gitignore
+.env
+.envrc
+output
+logs
+docker/postgres
+sample
+tmp
+/*.tgz
+dumps
+**/*.log

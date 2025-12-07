@@ -1,0 +1,16 @@
+/input/
+/node_modules/
+/output/
+/sample/
+/reject/
+.env
+.envrc
+/logs/
+notes.txt
+result.*
+result
+/corpus/
+scripts/lawphil/sample
+/logs/
+corpus.*
+dumps

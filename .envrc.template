@@ -1,0 +1,17 @@
+export OPENROUTER_KEY=
+export PGHOST=postgres
+export PGPORT=5433
+export PGUSER=postgres
+export PGPASSWORD=password
+export PGDATABASE=ragdb
+export RAG_TODAY="2025-11-10"
+export RAG_CONSTITUTION="1987"
+export RAG_CORPUS_PATH="./corpus"
+export RAG_PORT=3001
+export RAG_HOST=0.0.0.0
+export DOWNSAMPLE_DIM=1536
+export USE_LLM_SNIPPET=true
+export HARD_LIMIT=100
+## Path to embeddings JSONL (host path or relative path). Example: ./output/embeddings/embeddings.jsonl
+export INPUT_FILE="./output/embeddings/embeddings.jsonl"
+export APP_DATA_PATH="./data/app-data"

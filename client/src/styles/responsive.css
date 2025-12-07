@@ -1,0 +1,209 @@
+/* Responsive design */
+@media (max-width: 1024px) {
+  .file-viewer-container {
+    width: 45%;
+  }
+}
+
+@media (max-width: 768px) {
+  .main-container {
+    flex-direction: column;
+  }
+
+  .chatbot-container {
+    flex: 1;
+    max-width: 100%;
+    margin: 0;
+    border-radius: 0;
+    height: 50vh;
+  }
+
+  .file-viewer-container {
+    width: 100%;
+    height: 50vh;
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .file-viewer-container.visible {
+    display: flex;
+    width: 100%;
+    height: 100%;
+  }
+
+  .message-bubble {
+    max-width: 85%;
+  }
+
+  .file-viewer-header {
+    padding: 12px 14px;
+    gap: 8px;
+  }
+
+  .file-viewer-title {
+    font-size: 13px;
+  }
+
+  .view-toggle {
+    padding: 3px;
+  }
+
+  .view-btn {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+
+  #fileViewer {
+    transform-origin: bottom; /* Expand from bottom to top on mobile */
+    transition:
+      transform 0.3s ease,
+      opacity 0.3s ease; /* Enable transition for closing */
+  }
+
+  @keyframes expand-mobile {
+    0% {
+      transform: scaleY(0);
+      opacity: 0;
+    }
+    100% {
+      transform: scaleY(1);
+      opacity: 1;
+    }
+  }
+
+  #fileViewer.visible {
+    animation: expand-mobile 0.3s ease forwards; /* Use mobile-specific animation */
+  }
+
+  @keyframes closeMobile {
+    0% {
+      transform: scaleY(1);
+      opacity: 1;
+    }
+    100% {
+      transform: scaleY(0);
+      opacity: 0;
+    }
+  }
+
+  #fileViewer.closing {
+    animation: closeMobile 0.3s ease forwards;
+  }
+}
+
+@media (max-width: 640px) {
+  .chatbot-container {
+    width: 100vw;
+    max-width: 100%;
+    padding: 0;
+  }
+
+  .chat-header {
+    padding: 12px;
+  }
+
+  .mode-selector,
+  .perspective-selector {
+    flex: 0 0 auto !important;
+    width: auto !important;
+  }
+
+  #modeSelect,
+  #perspectiveDropdown {
+    width: auto !important;
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+    height: 28px !important;
+    flex-shrink: 0;
+  }
+
+  .clear-history-btn {
+    flex: 0 0 auto !important;
+    height: 28px !important;
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+    flex-shrink: 0;
+  }
+
+  .file-viewer-container.visible {
+    display: flex;
+    width: 100%;
+    height: 100%;
+  }
+
+  .message-bubble {
+    max-width: 90%;
+  }
+
+  .file-viewer-title {
+    font-size: 12px;
+  }
+
+  .file-formatted {
+    padding: 14px;
+    font-size: 13px;
+  }
+
+  .line-number {
+    min-width: 32px;
+    margin-right: 8px;
+  }
+
+  .view-toggle {
+    gap: 2px;
+  }
+
+  .view-btn {
+    padding: 4px 8px;
+    font-size: 10px;
+  }
+
+  .file-formatted h1 {
+    font-size: 18px;
+    margin: 16px 0 12px 0;
+  }
+
+  .file-formatted h2 {
+    font-size: 16px;
+    margin: 14px 0 10px 0;
+  }
+
+  .file-formatted h3 {
+    font-size: 14px;
+    margin: 12px 0 8px 0;
+  }
+
+  .chat-input-container {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .chat-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    width: 100%;
+  }
+
+  #messageInput {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 12px;
+    font-size: 16px;
+  }
+
+  .send-btn {
+    padding: 8px 16px;
+    font-size: 13px;
+    height: 36px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+}
