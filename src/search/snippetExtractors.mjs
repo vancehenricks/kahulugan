@@ -81,7 +81,7 @@ export async function extractRelevantSnippetWithLLM(text, query, maxChars = 300)
   try {
     if (!text || !text.trim()) return '';
     
-    const CHUNK_SIZE = parseInt(process.env.SNIPPET_CHUNK_SIZE || '50000', 10);
+    const CHUNK_SIZE = parseInt(process.env.SNIPPET_CHUNK_SIZE || '100000', 10);
     const CHUNK_OVERLAP = parseInt(process.env.SNIPPET_CHUNK_OVERLAP || '500', 10);
     const MAX_CHUNKS = parseInt(process.env.SNIPPET_MAX_CHUNKS || '20', 10);
     
