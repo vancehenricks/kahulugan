@@ -2,6 +2,7 @@
 
 AI-powered legal research chatbot for Philippine legal materials.
 
+Demo: kahulugan.cornerofthe.net
 
 ## Requirements
 
