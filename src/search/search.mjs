@@ -190,7 +190,7 @@ export async function fetchRelevantMatches(query) {
     const summaries = [];
     for (let i = 0; i < scored.length; i += 1) {
       const match = scored[i];
-      const rawSnippet = await extractRelevantSnippet(match.text || '', query, false);
+      const rawSnippet = await extractRelevantSnippet(match.text || '', query);
       const snippet = await formatSnippet(rawSnippet);
 
       // If snippet is unknown, omit this source entirely from items/summaries
