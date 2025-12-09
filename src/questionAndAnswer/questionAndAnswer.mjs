@@ -41,7 +41,7 @@ export async function answerQuestion(
       ].join('\n');
       const usr = { role: 'user', content: [{ type: 'text', text: usrText }] };
       const completion = await openai.chat.completions.create({
-        model: 'google/gemini-2.5-flash',
+        model: 'openai/gpt-oss-20b',
         messages: [sys, usr],
         temperature: 0.1,
         max_output_tokens: 64,
