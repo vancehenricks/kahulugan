@@ -126,7 +126,7 @@ export async function extractRelevantSnippetWithLLM(text, query, maxChars = 300)
 
       try {
         const completion = await openai.chat.completions.create({
-          model: 'openai/gpt-oss-20b',
+          model: 'google/gemini-2.0-flash-001',
           messages: [system, user],
           temperature: 0.0,
           max_output_tokens: 200,
