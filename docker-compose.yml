@@ -75,6 +75,7 @@ services:
       INPUT_FILE: /app/input/embeddings.jsonl
       RAG_CORPUS_PATH: /app/corpus
       NODE_ENV: ${NODE_ENV:-production}
+      USE_LLM_SNIPPET: ${USE_LLM_SNIPPET}
     profiles: ["importer"]
     volumes:
       - ${INPUT_FILE}:/app/input/embeddings.jsonl:ro
