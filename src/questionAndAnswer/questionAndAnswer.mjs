@@ -27,10 +27,48 @@ export async function answerQuestion(
   }
 
   log('QnA: Start', question);
+  // Intermediary: interpret and reformulate the user's question to improve retrieval
+  async function reformulateQuestion(original, stateStr) {
+    try {
+      const sys = {
+        role: 'system',
+        content: 'You are a query reformulation assistant for legal RAG. Given a user question, produce a concise, retrieval-friendly reformulation that clarifies entities, dates, jurisdiction (Philippines), and relevant legal topics. Do not add facts. Keep it one sentence, under 40 words.'
+      };
+      const usrText = [
+        'ORIGINAL QUESTION:',
+        String(original).trim(),
+        stateStr ? '\nCLIENT STATE (optional context):\n' + stateStr : ''
+      ].join('\n');
+      const usr = { role: 'user', content: [{ type: 'text', text: usrText }] };
+      const completion = await openai.chat.completions.create({
+        model: 'google/gemini-2.5-flash',
+        messages: [sys, usr],
+        temperature: 0.1,
+        max_output_tokens: 64,
+      });
+      const reformulated = (completion?.choices?.[0]?.message?.content || '').toString().trim();
+      if (reformulated) return reformulated;
+    } catch (err) {
+      warn('QnA: reformulateQuestion failed:', err?.message || err);
+    }
+    return String(original).trim();
+  }
   try {
+  // Compute lightweight client state string early for reformulation
+  const clientStateStrForReformulation = (() => {
+    try {
+      return serializeAndLimit(extractUserAndAssistantFromClientState(clientState), 1500);
+    } catch { return null; }
+  })();
+
+  // Reformulate the question to aid retrieval
+  const searchQuery = await reformulateQuestion(question, clientStateStrForReformulation);
+  log('QnA: Reformulated query for retrieval:', searchQuery);
+
   let matches = [];
   try {
-    matches = await searchNearest(question, k);
+    // Use reformulated query for nearest-neighbour search
+    matches = await searchNearest(searchQuery, k);
   } catch (err) {
     warn('QnA: searchNearest failed:', err?.message || err);
     return { answer: UNKNOWN_PHRASE, sources: [], matches: [] };
