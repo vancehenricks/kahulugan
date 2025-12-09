@@ -155,7 +155,7 @@ export async function researcherExecutePlan(plan) {
       // Try to generate a relevant snippet; fall back to a simple truncation
       let snippet = originalText.slice(0, 800);
       try {
-        snippet = await extractRelevantSnippet(originalText, q || '');
+        snippet = await extractRelevantSnippet(originalText, q || '', false);
         if (snippet && typeof snippet === 'string') snippet = await formatSnippet(snippet);
 
         // If we can't extract a reliable snippet, omit this hit entirely
