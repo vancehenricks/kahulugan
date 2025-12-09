@@ -343,42 +343,5 @@ export async function searchNearest(query, k = 5, opts = {}) {
     )
   );
 
-  // Reorder results based on dates present in filenames (newest first)
-  function extractDateFromFilename(name) {
-    if (!name || typeof name !== 'string') return null;
-    const s = name.trim();
-    // Try YYYY-MM-DD or YYYY_MM_DD or YYYY.MM.DD
-    let m = s.match(/(19|20)\d{2}[-_.](0[1-9]|1[0-2])[-_.](0[1-9]|[12]\d|3[01])/);
-    if (m) {
-      const y = m[0].slice(0,4);
-      const mo = m[2];
-      const d = m[3];
-      return new Date(`${y}-${mo}-${d}`);
-    }
-    // Try YYYY-MM or YYYY_MM
-    m = s.match(/(19|20)\d{2}[-_.](0[1-9]|1[0-2])/);
-    if (m) {
-      const y = m[0].slice(0,4);
-      const mo = m[2];
-      return new Date(`${y}-${mo}-01`);
-    }
-    // Try bare year YYYY
-    m = s.match(/\b(19|20)\d{2}\b/);
-    if (m) {
-      const y = m[0].slice(0,4);
-      return new Date(`${y}-01-01`);
-    }
-    return null;
-  }
-
-  results.sort((a, b) => {
-    const da = extractDateFromFilename(a?.filename || '');
-    const db = extractDateFromFilename(b?.filename || '');
-    if (da && db) return db - da; // newest first
-    if (da && !db) return -1;
-    if (!da && db) return 1;
-    return 0;
-  });
-
   return results;
 }
