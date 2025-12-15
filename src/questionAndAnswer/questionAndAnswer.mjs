@@ -362,21 +362,25 @@ export async function answerQuestion(
 
     // Map canonical file URL -> 1-based index
     const fileIdx = new Map(orderedFileUrls.map((u, i) => [u, i + 1]));
+    let out = String(text);
 
-    // Replace any markdown-style links that point to an _FILE_: token with the correct index
-    // Preserve the original link target, only normalize the bracket number text.
-    // Matches: [anything](_FILE_:uuid/filename.ext)  -> will become: [N](_FILE_:uuid/filename.ext)
-    return String(text).replace(/\[([^\]]*?)\]\((_FILE_:[^)]+)\)/g, (match, _inner, href) => {
-      // Normalize href just in case there are fragments or trailing whitespace
-      const canonicalHref = String(href).split('#')[0].trim();
+    // Fix malformed patterns like: [4](FILE:uuid/path.txt] -> [4](FILE:uuid/path.txt)
+    out = out.replace(/\(\s*(FILE:[^)\]]+)\]/gi, '($1)');
 
-      // direct mapping
-      const idx = fileIdx.get(canonicalHref);
-      if (idx) {
-        return `[${idx}](${href})`;
+    // Replace any markdown-style links that point to an _FILE_:/FILE:/bare-token with the correct index
+    return out.replace(/\[([^\]]*?)\]\(([^)]+)\)/g, (match, _inner, href) => {
+      let canonicalHref = String(href).split('#')[0].trim();
+
+      // Normalize FILE: (no underscore) to internal _FILE_: token
+      if (canonicalHref.toUpperCase().startsWith('FILE:')) {
+        canonicalHref = `_FILE_:${canonicalHref.replace(/^[Ff][Ii][Ll][Ee]:/, '').replace(/^\/+/, '')}`;
       }
 
-      // Try more relaxed matching: sometimes the model may have included or omitted a leading slash
+      // direct mapping for existing _FILE_ tokens
+      const idx = fileIdx.get(canonicalHref);
+      if (idx) return `[${idx}](${href})`;
+
+      // Try relaxed matching: sometimes the model may have included or omitted a leading slash
       for (const [key, value] of fileIdx.entries()) {
         if (key === canonicalHref || key.replace(/^\//, '') === canonicalHref.replace(/^\//, '')) {
           return `[${value}](${href})`;

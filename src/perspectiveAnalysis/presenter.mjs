@@ -7,6 +7,83 @@ import { identifyParties } from './partyIdentifier.mjs';
 import { generatePerspective } from './perspectiveGenerator.mjs';
 import { verifyPerspective } from './responseVerifier.mjs';
 
+// Exported helper: renumber inline citations so markdown-style file tokens
+// (including malformed LLM outputs) are mapped to a consistent numeric index
+export function renumberInlineCitations(text, orderedFileUrls) {
+  if (!text || !Array.isArray(orderedFileUrls) || orderedFileUrls.length === 0) return text;
+
+  // Map canonical file URL -> 1-based index
+  const fileIdx = new Map(orderedFileUrls.map((u, i) => [u, i + 1]));
+
+  // Helper: determine whether a string looks like a file token (uuid/filename or similar)
+  function looksLikeFileToken(s) {
+    if (!s || typeof s !== 'string') return false;
+    const trimmed = s.trim();
+    // common pattern: <uuid>/<filename>
+    if (/^[0-9a-fA-F-]{36}\/[^\s]+$/.test(trimmed)) return true;
+    // or already has the _FILE_ prefix
+    if (/^_FILE_:[^\s]+$/.test(trimmed)) return true;
+    // Accept FILE: tokens (some outputs may omit the leading underscore)
+    if (/^FILE:[^\s]+$/.test(trimmed)) return true;
+    return false;
+  }
+
+  let out = String(text);
+
+  // Normalize common malformed FILE token patterns produced by LLMs
+  // Example: [4](FILE:uuid/path.txt]  ->  [4](FILE:uuid/path.txt)
+  out = out.replace(/\(\s*(FILE:[^)\]]+)\]/gi, '($1)');
+
+  // 1) Handle markdown links: [text](href)
+  out = out.replace(/\[([^\]]*?)\]\(([^)]+)\)/g, (match, _inner, href) => {
+    let canonicalHref = String(href).split('#')[0].trim();
+
+    // Accept hrefs that start with 'FILE:' (no leading underscore) and normalize them
+    if (canonicalHref.toUpperCase().startsWith('FILE:')) {
+      canonicalHref = `_FILE_:${canonicalHref.replace(/^[Ff][Ii][Ll][Ee]:/, '').replace(/^\/+/, '')}`;
+    }
+
+    // If href looks like a bare file token, canonicalize to internal token format
+    if (!canonicalHref.startsWith('_FILE_:') && looksLikeFileToken(canonicalHref)) {
+      // strip any leading slashes and ensure the _FILE_: prefix
+      canonicalHref = canonicalHref.startsWith('FILE:')
+        ? `_FILE_:${canonicalHref.replace(/^[Ff][Ii][Ll][Ee]:/, '').replace(/^\/+/, '')}`
+        : `_FILE_:${canonicalHref.replace(/^\/+/, '')}`;
+    }
+
+    // direct mapping
+    const idx = fileIdx.get(canonicalHref);
+    if (idx) return `[${idx}](${canonicalHref})`;
+
+    // Relaxed matching (allow leading slash differences)
+    for (const [key, value] of fileIdx.entries()) {
+      if (key === canonicalHref || key.replace(/^\//, '') === canonicalHref.replace(/^\//, '')) {
+        return `[${value}](${canonicalHref})`;
+      }
+    }
+
+    // No match, leave as-is
+    return match;
+  });
+
+  // 2) Handle bare bracket tokens like [uuid/filename] (no parentheses)
+  out = out.replace(/\[([^\]]+?)\]/g, (match, inner) => {
+    if (!looksLikeFileToken(inner)) return match;
+    const canonical = inner.trim().startsWith('_FILE_:') ? inner.trim() : `_FILE_:${inner.trim().replace(/^\/+/, '')}`;
+    const idx = fileIdx.get(canonical);
+    if (idx) return `[${idx}](${canonical})`;
+    // try relaxed matching
+    for (const [key, value] of fileIdx.entries()) {
+      if (key === canonical || key.replace(/^\//, '') === canonical.replace(/^\//, '')) {
+        return `[${value}](${canonical})`;
+      }
+    }
+    return match;
+  });
+
+  return out;
+}
+
 export async function presenterPresent(question, plan, snippets) {
   // Count total characters before starting
   const questionChars = question.length;
@@ -232,67 +309,6 @@ export async function presenterPresent(question, plan, snippets) {
 
     log('Final response completed:', response.length, 'characters');
 
-    // Renumber inline citations to match the order of `fileUrls` included in the CONTEXT
-    function renumberInlineCitations(text, orderedFileUrls) {
-      if (!text || !Array.isArray(orderedFileUrls) || orderedFileUrls.length === 0) return text;
-
-      // Map canonical file URL -> 1-based index
-      const fileIdx = new Map(orderedFileUrls.map((u, i) => [u, i + 1]));
-
-      // Helper: determine whether a string looks like a file token (uuid/filename or similar)
-      function looksLikeFileToken(s) {
-        if (!s || typeof s !== 'string') return false;
-        const trimmed = s.trim();
-        // common pattern: <uuid>/<filename>
-        if (/^[0-9a-fA-F-]{36}\/[^\s]+$/.test(trimmed)) return true;
-        // or already has the _FILE_ prefix
-        if (/^_FILE_:[^\s]+$/.test(trimmed)) return true;
-        return false;
-      }
-
-      let out = String(text);
-
-      // 1) Handle markdown links: [text](href)
-      out = out.replace(/\[([^\]]*?)\]\(([^)]+)\)/g, (match, _inner, href) => {
-        let canonicalHref = String(href).split('#')[0].trim();
-
-        // If href looks like a bare file token, canonicalize to internal token format
-        if (!canonicalHref.startsWith('_FILE_:') && looksLikeFileToken(canonicalHref)) {
-          canonicalHref = `_FILE_:${canonicalHref.replace(/^\/+/, '')}`;
-        }
-
-        // direct mapping
-        const idx = fileIdx.get(canonicalHref);
-        if (idx) return `[${idx}](${canonicalHref})`;
-
-        // Relaxed matching (allow leading slash differences)
-        for (const [key, value] of fileIdx.entries()) {
-          if (key === canonicalHref || key.replace(/^\//, '') === canonicalHref.replace(/^\//, '')) {
-            return `[${value}](${canonicalHref})`;
-          }
-        }
-
-        // No match, leave as-is
-        return match;
-      });
-
-      // 2) Handle bare bracket tokens like [uuid/filename] (no parentheses)
-      out = out.replace(/\[([^\]]+?)\]/g, (match, inner) => {
-        if (!looksLikeFileToken(inner)) return match;
-        const canonical = inner.trim().startsWith('_FILE_:') ? inner.trim() : `_FILE_:${inner.trim().replace(/^\/+/, '')}`;
-        const idx = fileIdx.get(canonical);
-        if (idx) return `[${idx}](${canonical})`;
-        // try relaxed matching
-        for (const [key, value] of fileIdx.entries()) {
-          if (key === canonical || key.replace(/^\//, '') === canonical.replace(/^\//, '')) {
-            return `[${value}](${canonical})`;
-          }
-        }
-        return match;
-      });
-
-      return out;
-    }
 
     const renumbered = renumberInlineCitations(response, fileUrls);
     return renumbered;
