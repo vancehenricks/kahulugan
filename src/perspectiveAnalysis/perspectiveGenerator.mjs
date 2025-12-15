@@ -86,6 +86,8 @@ export async function generatePerspective({
       // eslint-disable-next-line no-useless-escape
       'Cite supporting source(s) using numbered inline link citations that are clickable Markdown links in the format [n](_FILE_:uuid/filename.txt) (e.g., [1](_FILE_:uuid/filename.txt), [2](_FILE_:uuid/filename2.txt), [3](_FILE_:uuid/filename.txt) etc..).',
       `Context: Use only the provided CONTEXT to make factual claims, cite statutes, case names, and dates.`,
+      // Explicitly prevent the model from echoing meta-markers
+      "Do NOT include the literal token '[CONTEXT]' or other bracketed context markers (e.g., [CONTEXT]) in your answer. Do not append or repeat context labels or placeholders — reference facts directly and cite using the numbered inline link format described above.",
       'Summary: Do NOT hallucinate or invent facts. If the CONTEXT lacks key facts to support a claim, respond exactly with: ' +
         `"${UNKNOWN_PHRASE}"`,
       "Direct Answer: Begin with a concise, direct answer (1-2 sentences) that addresses the user's legal question as phrased in the Scenario.",
