@@ -294,10 +294,7 @@ export async function presenterPresent(question, plan, snippets) {
       return out;
     }
 
-    // Remove any accidental literal '[CONTEXT]' placeholders the model may have inserted
-    const cleanedResponse = String(response).replace(/\s*\[CONTEXT\](?:\s*\[CONTEXT\])*/g, ' ').replace(/\s{2,}/g, ' ').trim();
-
-    const renumbered = renumberInlineCitations(cleanedResponse, fileUrls);
+    const renumbered = renumberInlineCitations(response, fileUrls);
     return renumbered;
   } catch (error) {
     // Extract a concise, user-friendly error message while avoiding stack traces.

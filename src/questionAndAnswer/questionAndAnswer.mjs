@@ -284,7 +284,6 @@ export async function answerQuestion(
     role: 'system',
     content: [
       'You are a legal assistant. Use ONLY the provided CONTEXT to support facts, law, and citations. Do NOT hallucinate or invent legal rules not present in the context.',
-      "Do NOT include the literal token '[CONTEXT]' or other bracketed context markers (e.g., [CONTEXT]) in your answer. Do not append or repeat context labels or placeholders — reference facts directly and cite using the numbered inline link format.",
       "If the question is ambiguous or the context is incomplete, you may propose reasonable interpretations or assumptions to provide a helpful answer. For any assumption you make, clearly label it under 'ASSUMPTIONS' and explain how it affects the answer.",
       `Assume the reference date is ${DEFAULT_RAG_TODAY}, the applicable constitution is ${DEFAULT_RAG_CONSTITUTION}, and the nation is ${DEFAULT_RAG_NATION}, unless the user explicitly specifies otherwise. If the user refers to a different date, constitution, or nation, ask a clarifying question.`,
       `If there is absolutely no context or relevant information upon which to base any reasonable interpretation, respond exactly with: "${UNKNOWN_PHRASE}"`,
@@ -309,8 +308,6 @@ export async function answerQuestion(
   }
 
   userText += `Question: ${question}\n\nCONTEXT:\n${contextText}\n\nNOTE: If you make ASSUMPTIONS to interpret the question, list them at the top of your answer and mark which parts of the answer rely on those assumptions. Please answer in a conversational tone (short direct answer first, then brief explanation).`;
-  // Additional guidance for the model: avoid echoing literal context labels or placeholders
-  userText += '\n\nNOTE: Do NOT include the literal token "[CONTEXT]" or other bracketed placeholders in your answer; do not append context labels or meta-tags to your claims.';
 
   const user = {
     role: 'user',
@@ -341,9 +338,6 @@ export async function answerQuestion(
 
   // Basic normalization and fallback
   const answer = (raw || '').toString().trim() || UNKNOWN_PHRASE;
-
-  // Remove any accidental literal '[CONTEXT]' placeholders the model may have inserted
-  const cleanedAnswer = String(answer).replace(/\s*\[CONTEXT\](?:\s*\[CONTEXT\])*/g, ' ').replace(/\s{2,}/g, ' ').trim();
 
   // For front-end display: return simplified sources array (file URLs)
   // Ensure the UI receives the internal _FILE_:<uuid>/<filename> token format wherever possible
@@ -395,7 +389,7 @@ export async function answerQuestion(
   }
 
   // Renumber citations in the LLM answer so they match the order of the sources provided
-  const renumberedAnswer = renumberInlineCitations(cleanedAnswer, fileUrls);
+  const renumberedAnswer = renumberInlineCitations(answer, fileUrls);
 
   // Provide richer source detail (snippet for reference)
   return {
