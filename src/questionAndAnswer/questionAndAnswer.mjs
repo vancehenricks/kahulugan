@@ -284,6 +284,8 @@ export async function answerQuestion(
     role: 'system',
     content: [
       'You are a legal assistant. Use ONLY the provided CONTEXT to support facts, law, and citations. Do NOT hallucinate or invent legal rules not present in the context.',
+      // Prevent the model from echoing internal labels or square-bracketed section markers
+      'Do NOT include the literal tags "[CONTEXT]" or "[Scenario]" or other square-bracketed section headings in your output. If you need to refer to the context or scenario, paraphrase in plain text (e.g., "from the provided context").',
       "If the question is ambiguous or the context is incomplete, you may propose reasonable interpretations or assumptions to provide a helpful answer. For any assumption you make, clearly label it under 'ASSUMPTIONS' and explain how it affects the answer.",
       `Assume the reference date is ${DEFAULT_RAG_TODAY}, the applicable constitution is ${DEFAULT_RAG_CONSTITUTION}, and the nation is ${DEFAULT_RAG_NATION}, unless the user explicitly specifies otherwise. If the user refers to a different date, constitution, or nation, ask a clarifying question.`,
       `If there is absolutely no context or relevant information upon which to base any reasonable interpretation, respond exactly with: "${UNKNOWN_PHRASE}"`,
