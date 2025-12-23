@@ -121,7 +121,7 @@ export async function generatePerspective({
     const completion = await openai.chat.completions.create({
       model: 'google/gemini-2.5-flash',
       messages: [system, user],
-      temperature: 0.2,
+      temperature: 0.0,
     });
 
     const response = completion?.choices?.[0]?.message?.content ?? '(no answer)';
