@@ -4,7 +4,7 @@ POSTGRES_USER	?= postgres
 POSTGRES_DB	?= ragdb
 INPUT_FILE	?= rag-data/embeddings.jsonl
 
-.PHONY: help build up down restart logs psql importer rebuild clean server build-client client-dev lint format dev-up dev-down dev-logs dev-shell
+.PHONY: help build up down restart logs psql importer rebuild clean dev-setup-db server build-client client-dev lint format dev-up dev-down dev-logs dev-shell
 
 help:
 	@echo "Usage:"
@@ -14,9 +14,10 @@ help:
 	@echo "  make restart          Restart production services"
 	@echo "  make logs             Follow logs for postgres and app"
 	@echo "  make psql             Open psql shell on production postgres"
-	@echo "  make importer         Start importer (detached). Uses Compose profile 'importer' and runs scripts/setup-db.mjs; use INPUT_FILE and/or DOCUMENTS_FILE to import JSONL; not started by default with 'make up'"
+	@echo "  make importer         Start importer (detached). Uses Compose profile 'importer' and runs scripts/setup-db.mjs; not started by default with 'make up'"
+	@echo "  make dev-setup-db     Run scripts/setup-db.mjs inside the dev container (app-dev) via the 'dev' profile"
 	@echo "  make rebuild          Down, build, and bring up services"
-	@echo "  make clean            Stop and remove containers, networks, volumes (DESTRUCTIVE - set WIPE=1 to proceed)"
+	@echo "  make clean            Stop and remove containers, networks, volumes"
 	@echo "  make server           Start the development server (watch mode)"
 	@echo "  make build-client     Build the rag-client application"
 	@echo "  make client-dev       Start the rag-client in development mode"
@@ -89,18 +90,18 @@ importer:
 	@echo "The importer will run in the background; follow logs with '$(DC) logs -f importer'"
 	INPUT_FILE=$(INPUT_FILE) DOCUMENTS_FILE=$(DOCUMENTS_FILE) RAG_CORPUS_PATH=$(RAG_CORPUS_PATH) $(DC) run --rm -d importer || true
 
+dev-setup-db:
+	@echo "Running setup-db inside 'app-dev' (dev profile). Ensure dev containers are running: make dev-up"
+	@echo "INPUT_FILE=$(INPUT_FILE) DOCUMENTS_FILE=$(DOCUMENTS_FILE)"
+	$(DC) --profile dev exec -e INPUT_FILE=$(INPUT_FILE) -e DOCUMENTS_FILE=$(DOCUMENTS_FILE) -e RAG_CORPUS_PATH=$(RAG_CORPUS_PATH) app-dev node scripts/setup-db.mjs || true
+
 rebuild:
 	$(DC) down
 	$(DC) build
 	$(DC) up -d
 
 clean:
-	@echo "\n!!! DESTRUCTIVE: This will stop services and REMOVE compose-managed volumes (including postgres-data). !!!\n"
-	@echo "To proceed set WIPE=1 (example: WIPE=1 make clean)"
-	@if [ "$(WIPE)" != "1" ]; then echo "Aborting: WIPE not set (to wipe, run: WIPE=1 make clean)"; exit 1; fi
-	@echo "Stopping compose and removing volumes..."
-	$(DC) down -v --remove-orphans || true
-	@echo "Done. Volumes declared in docker-compose.yml (including postgres-data) were removed.\n"
+	$(DC) down -v --remove-orphans
 
 lint:
 	@echo "Running ESLint..."
