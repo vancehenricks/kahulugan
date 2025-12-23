@@ -92,8 +92,19 @@ async function interpretMatchesWithLLM(items = [], query = '') {
         .join('; ');
       brief = brief || 'Top documents recommended.';
     } else {
-      // fallback: take first 1-2 lines of raw output, sanitized
-      brief = (raw || '(no interpretation)').split('\n').slice(0, 2).join(' ').trim();
+      // Fallback: avoid exposing raw JSON blobs to the UI. If the raw
+      // response looks like JSON (starts with '{' or '[' or contains
+      // a topDocuments array), return a safe short summary instead of the
+      // raw text. Otherwise, take the first 1-2 lines as a sanitized fallback.
+      const rawTrim = (raw || '').toString().trim();
+      if (!rawTrim || rawTrim.length === 0) {
+        brief = '(no interpretation)';
+      } else if ((rawTrim[0] === '{' || rawTrim[0] === '[') || rawTrim.includes('"topDocuments"')) {
+        log('interpretMatchesWithLLM: raw response looks like JSON; using safe brief fallback');
+        brief = 'Top documents recommended.';
+      } else {
+        brief = rawTrim.split('\n').slice(0, 2).join(' ').trim();
+      }
     }
 
     return { raw, parsed, brief };
@@ -196,12 +207,22 @@ export async function fetchRelevantMatches(query) {
     const summaries = [];
     for (let i = 0; i < scored.length; i += 1) {
       const match = scored[i];
-      const rawSnippet = await extractRelevantSnippet(match.text || '', query);
-      const snippet = await formatSnippet(rawSnippet);
 
-      // If snippet is unknown, omit this source entirely from items/summaries
-      if (snippet === UNKNOWN_PHRASE) {
-        log('fetchRelevantMatches: skipping match due to UNKNOWN_PHRASE', { filename: match.filename, uuid: match.uuid });
+      // Prefer the stored document summary (if present) rather than running
+      // snippet extraction. Fall back to LLM/heuristic extraction only when
+      // no summary is available.
+      let snippet = null;
+      if (match.summary && String(match.summary).trim().length > 0) {
+        snippet = await formatSnippet(match.summary);
+      } else {
+        const rawSnippet = await extractRelevantSnippet(match.text || '', query);
+        snippet = await formatSnippet(rawSnippet);
+      }
+
+      // If after fallback we still have an UNKNOWN_PHRASE or empty snippet,
+      // omit this source entirely from items/summaries
+      if (!snippet || snippet === UNKNOWN_PHRASE || String(snippet).trim().length === 0) {
+        log('fetchRelevantMatches: skipping match due to missing or UNKNOWN_PHRASE snippet/summary', { filename: match.filename, uuid: match.uuid });
         continue;
       }
 
