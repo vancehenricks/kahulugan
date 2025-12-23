@@ -32,6 +32,7 @@ async function fileExists(p) {
 
 const INPUT_FILE = process.env.INPUT_FILE || null;
 const DOWNSAMPLE_DIM = process.env.DOWNSAMPLE_DIM ? Number(process.env.DOWNSAMPLE_DIM) : null;
+const DOCUMENTS_FILE = process.env.DOCUMENTS_FILE || null;
 
 // Prefer explicit DATABASE_URL when available — it commonly comes from platforms
 // like Dokku and encodes the full host/port/user/password in one string.
@@ -111,14 +112,6 @@ async function getDbEmbeddingDim() {
 async function createTablesWithVector(dim, createVectorIndex = true) {
   await client.query(`CREATE EXTENSION IF NOT EXISTS vector;`);
 
-  let trgmAvailable = false;
-  try {
-    await client.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm;`);
-    trgmAvailable = true;
-  } catch {
-    console.warn('Warning: pg_trgm extension not available. Falling back to non-trigram indexes.');
-    trgmAvailable = false;
-  }
 
   await client.query(`
     CREATE TABLE IF NOT EXISTS embeddings (
@@ -127,26 +120,17 @@ async function createTablesWithVector(dim, createVectorIndex = true) {
     );
   `);
 
+  // Documents metadata table (store document metadata and optional summary)
   await client.query(`
-    CREATE TABLE IF NOT EXISTS embeddings_files (
+    CREATE TABLE IF NOT EXISTS documents (
       uuid UUID PRIMARY KEY,
-      filename TEXT,
+      title TEXT,
+      date DATE,
+      category TEXT,
       relative_path TEXT,
-      CONSTRAINT fk_embeddings FOREIGN KEY (uuid) REFERENCES embeddings(uuid) ON DELETE CASCADE
-    );
-  `);
-
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS embeddings_titles (
-      uuid UUID PRIMARY KEY REFERENCES embeddings(uuid) ON DELETE CASCADE,
-      line_index INTEGER,
-      title_line TEXT,
-      evidence JSONB,
-      type TEXT,
-      id TEXT,
-      normalized_title TEXT,
-      confidence REAL,
-      canonical_short TEXT
+      filename TEXT,
+      summary TEXT,
+      metadata JSONB
     );
   `);
 
@@ -161,22 +145,25 @@ async function createTablesWithVector(dim, createVectorIndex = true) {
     console.warn(`Skipping creation of ivfflat vector index because embedding dimension (${dim}) > 2000.`);
   }
 
-  if (trgmAvailable) {
+  // Create trigram or fallback indexes for documents filename
+  try {
+    await client.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm;`);
     try {
-      await client.query(`CREATE INDEX IF NOT EXISTS idx_files_filename_trgm ON embeddings_files USING GIN (lower(filename) gin_trgm_ops);`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_documents_filename_trgm ON documents USING GIN (lower(filename) gin_trgm_ops);`);
     } catch (err) {
-      console.warn('Failed creating trigram GIN index for filename:', err.message || err);
+      console.warn('Failed creating trigram GIN index for documents.filename:', err.message || err);
       try {
-        await client.query(`CREATE INDEX IF NOT EXISTS idx_files_filename_btree_lower ON embeddings_files (lower(filename));`);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_documents_filename_btree_lower ON documents (lower(filename));`);
       } catch (err2) {
-        console.warn('Also failed creating fallback btree index for filename:', err2.message || err2);
+        console.warn('Also failed creating fallback btree index for documents.filename:', err2.message || err2);
       }
     }
-  } else {
+  } catch {
+    // pg_trgm not available — create btree index instead
     try {
-      await client.query(`CREATE INDEX IF NOT EXISTS idx_files_filename_btree_lower ON embeddings_files (lower(filename));`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_documents_filename_btree_lower ON documents (lower(filename));`);
     } catch (err) {
-      console.warn('Failed creating fallback btree index for filename:', err.message || err);
+      console.warn('Failed creating fallback btree index for documents.filename:', err.message || err);
     }
   }
 }
@@ -235,7 +222,6 @@ async function run() {
 
     // Only create the embeddings tables/indexes when they don't already exist
     const embeddingsExists = await tableExists('embeddings');
-    const metaExists = await tableExists('embeddings_files');
 
     // If embeddings table exists, query its declared dimension so we can
     // import compatible vectors (downsample or pad inputs when needed).
@@ -275,8 +261,8 @@ async function run() {
 
     
 
-    if (!embeddingsExists || !metaExists) {
-      console.log('embeddings / embeddings_files missing -> creating schema');
+    if (!embeddingsExists) {
+      console.log('embeddings missing -> creating schema');
       console.log(`Creating embeddings with vector dim ${finalDim} (indexable=${createVectorIndex})`);
       await createTablesWithVector(finalDim, createVectorIndex);
       // If we've just created the table, this is now the DB embedding dim
@@ -286,7 +272,7 @@ async function run() {
       // If we've just created the table, this is now the DB embedding dim
       if (!dbEmbeddingDim) dbEmbeddingDim = targetDim;
     } else {
-      console.log('embeddings & embeddings_files already exist — ensuring indexes');
+      console.log('embeddings already exist — ensuring indexes');
       if (createVectorIndex) {
         try {
           await client.query(`CREATE INDEX IF NOT EXISTS idx_embeddings_vector_ivfflat ON embeddings USING ivfflat (embedding) WITH (lists = 100);`);
@@ -313,6 +299,47 @@ async function run() {
     // separate script file). Create only when missing so we avoid dropping existing data.
     const suggestionsExists = await tableExists('suggestions');
     const suggestionsMetaExists = await tableExists('suggestions_meta');
+
+    // Ensure documents table exists (create when missing)
+    const documentsExists = await tableExists('documents');
+    async function createDocumentsIfMissing() {
+      try {
+        if (!documentsExists) {
+          console.log('Creating documents table...');
+          await client.query(`
+            CREATE TABLE IF NOT EXISTS documents (
+              uuid UUID PRIMARY KEY,
+              title TEXT,
+              date TIMESTAMP,
+              category TEXT,
+              relative_path TEXT,
+              filename TEXT,
+              summary TEXT,
+              metadata JSONB
+            );
+          `);
+          try {
+            await client.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm;`);
+            try {
+              await client.query(`CREATE INDEX IF NOT EXISTS idx_documents_filename_trgm ON documents USING GIN (lower(filename) gin_trgm_ops);`);
+            } catch {
+              await client.query(`CREATE INDEX IF NOT EXISTS idx_documents_filename_btree_lower ON documents (lower(filename));`);
+            }
+          } catch {
+            try { await client.query(`CREATE INDEX IF NOT EXISTS idx_documents_filename_btree_lower ON documents (lower(filename));`); } catch { /* ignore */ }
+          }
+          console.log('documents table created');
+        } else {
+          console.log('documents table already exists');
+        }
+      } catch (err) {
+        console.warn('Failed to create documents table:', err?.message || err);
+      }
+    }
+
+    // Ensure documents table exists (use helper)
+    await createDocumentsIfMissing();
+
     async function createSuggestionTablesIfMissing() {
       if (!suggestionsExists) {
         console.log('Creating suggestions table...');
@@ -410,6 +437,46 @@ async function run() {
       console.log(`Finished import: ${totalProcessed} inserted, ${totalSkipped} skipped`);
     }
 
+    // Import documents metadata only if DOCUMENTS_FILE is explicitly provided
+    if (DOCUMENTS_FILE) {
+      if (await fileExists(DOCUMENTS_FILE)) {
+        console.log('Importing documents from', DOCUMENTS_FILE);
+        const streamD = createReadStream(DOCUMENTS_FILE);
+        const rld = readline.createInterface({ input: streamD, crlfDelay: Infinity });
+
+      const BATCH_DOCS = 2000;
+      let batchDocs = [];
+      let totalDocs = 0;
+      let skippedDocs = 0;
+
+      for await (const line of rld) {
+        if (!line.trim()) continue;
+        let obj;
+        try {
+          obj = JSON.parse(line);
+        } catch {
+          skippedDocs++;
+          continue;
+        }
+        if (!obj.uuid) { skippedDocs++; continue; }
+        batchDocs.push({ uuid: obj.uuid, title: obj.title || null, date: obj.date || null, category: obj.category || null, relative_path: obj.relative_path || null, filename: obj.filename || null, summary: obj.summary || null, metadata: obj.metadata || null });
+        if (batchDocs.length >= BATCH_DOCS) {
+          await insertDocumentsBatch(batchDocs);
+          totalDocs += batchDocs.length;
+          console.log(`Inserted ${totalDocs} (skipped ${skippedDocs})`);
+          batchDocs = [];
+        }
+      }
+      if (batchDocs.length > 0) {
+        await insertDocumentsBatch(batchDocs);
+        totalDocs += batchDocs.length;
+      }
+      console.log(`Finished documents import: ${totalDocs} inserted, ${skippedDocs} skipped`);
+    } else {
+      console.warn(`DOCUMENTS_FILE set (${DOCUMENTS_FILE}) but not found — skipping documents import.`);
+    }
+  }
+
     console.log('setup-db: done');
   } catch (err) {
     console.error('Fatal:', err.message || err);
@@ -432,17 +499,8 @@ async function insertBatch(records) {
           `INSERT INTO embeddings (uuid, embedding) VALUES ($1, $2::vector) ON CONFLICT (uuid) DO UPDATE SET embedding = EXCLUDED.embedding`,
           [rec.uuid, embeddingParam]
         );
-        await client.query(
-          `INSERT INTO embeddings_files (uuid, filename, relative_path) VALUES ($1, $2, $3) ON CONFLICT (uuid) DO UPDATE SET filename = EXCLUDED.filename, relative_path = EXCLUDED.relative_path`,
-          [rec.uuid, rec.filename, rec.relative_path]
-        );
-        if (rec.extracted_title) {
-          const t = rec.extracted_title;
-          await client.query(
-            `INSERT INTO embeddings_titles (uuid, line_index, title_line, evidence, type, id, normalized_title, confidence, canonical_short) VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9) ON CONFLICT (uuid) DO UPDATE SET line_index = EXCLUDED.line_index, title_line = EXCLUDED.title_line, evidence = EXCLUDED.evidence, type = EXCLUDED.type, id = EXCLUDED.id, normalized_title = EXCLUDED.normalized_title, confidence = EXCLUDED.confidence, canonical_short = EXCLUDED.canonical_short`,
-            [rec.uuid, t.lineIndex ?? null, t.titleLine ?? null, JSON.stringify(t.evidence || null), t.type ?? null, t.id ?? null, t.normalized_title ?? null, t.confidence ?? null, t.canonical_short ?? null]
-          );
-        }
+        // Note: document metadata is handled separately via DOCUMENTS_FILE import
+        // and stored in the `documents` table.
       }
       await client.query('COMMIT');
     } catch (err) {
@@ -450,5 +508,21 @@ async function insertBatch(records) {
       throw new Error(`DB error inserting batch: ${err.message}`);
     }
   }
+
+async function insertDocumentsBatch(records) {
+  try {
+    await client.query('BEGIN');
+    for (const r of records) {
+      await client.query(
+        `INSERT INTO documents (uuid, title, date, category, relative_path, filename, summary, metadata) VALUES ($1,$2,$3::date,$4,$5,$6,$7,$8) ON CONFLICT (uuid) DO UPDATE SET title = EXCLUDED.title, date = EXCLUDED.date, category = EXCLUDED.category, relative_path = EXCLUDED.relative_path, filename = EXCLUDED.filename, summary = EXCLUDED.summary, metadata = EXCLUDED.metadata`,
+        [r.uuid, r.title, r.date, r.category, r.relative_path, r.filename, r.summary, r.metadata ? JSON.stringify(r.metadata) : null]
+      );
+    }
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw new Error(`DB error inserting documents batch: ${err.message}`);
+  }
+}
 
 await run();

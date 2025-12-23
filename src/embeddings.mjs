@@ -128,14 +128,10 @@ export async function searchNearest(query, k = 5, opts = {}) {
       // exist, return them immediately. Otherwise fall back to the ILIKE
       // substring+vector flow below.
       const exactSql = `
-        SELECT e.uuid, m.filename, m.relative_path,
-               t.line_index as title_lineIndex, t.title_line, t.evidence, t.type, t.id, t.normalized_title, t.confidence, t.canonical_short
+        SELECT e.uuid, m.filename, m.relative_path
         FROM embeddings e
-        LEFT JOIN embeddings_files m USING (uuid)
-        LEFT JOIN embeddings_titles t USING (uuid)
-        WHERE trim(t.normalized_title) = trim($1)
-           OR trim(t.canonical_short) = trim($1)
-           OR trim(t.title_line) = trim($1)
+        LEFT JOIN documents m USING (uuid)
+        WHERE trim(m.title) = trim($1)
         LIMIT $2
       `;
 
@@ -177,13 +173,10 @@ export async function searchNearest(query, k = 5, opts = {}) {
       // like "A.M. No. 01-2-04-SC" when the DB stores slightly different
       // punctuation/space arrangements.
       const idSql = `
-        SELECT e.uuid, m.filename, m.relative_path,
-               t.line_index as title_lineIndex, t.title_line, t.evidence, t.type, t.id, t.normalized_title, t.confidence, t.canonical_short
+        SELECT e.uuid, m.filename, m.relative_path
         FROM embeddings e
-        LEFT JOIN embeddings_files m USING (uuid)
-        LEFT JOIN embeddings_titles t USING (uuid)
-        WHERE lower(regexp_replace(t.canonical_short, '[.\\s]+', '', 'g')) = lower(regexp_replace($1, '[.\\s]+', '', 'g'))
-           OR lower(regexp_replace(t.title_line, '[.\\s]+', '', 'g')) = lower(regexp_replace($1, '[.\\s]+', '', 'g'))
+        LEFT JOIN documents m USING (uuid)
+        WHERE lower(regexp_replace(m.title, '[.\\s]+', '', 'g')) = lower(regexp_replace($1, '[.\\s]+', '', 'g'))
         LIMIT $2
       `;
 
@@ -221,13 +214,11 @@ export async function searchNearest(query, k = 5, opts = {}) {
       const pair = extractTypeEvidence(searchByTitleRaw);
       if (pair) {
         const typeSql = `
-          SELECT e.uuid, m.filename, m.relative_path,
-                 t.line_index as title_lineIndex, t.title_line, t.evidence, t.type, t.id, t.normalized_title, t.confidence, t.canonical_short
+          SELECT e.uuid, m.filename, m.relative_path
           FROM embeddings e
-          LEFT JOIN embeddings_files m USING (uuid)
-          LEFT JOIN embeddings_titles t USING (uuid)
-          WHERE (COALESCE(t.type::text, '') ILIKE $1 OR COALESCE(t.type::text, '') ILIKE '%' || $1 || '%')
-            AND (COALESCE(t.evidence::text, '') ILIKE $2 OR COALESCE(t.id::text, '') ILIKE $2)
+          LEFT JOIN documents m USING (uuid)
+          WHERE (COALESCE(m.category::text, '') ILIKE $1 OR COALESCE(m.category::text, '') ILIKE '%' || $1 || '%')
+            AND (COALESCE(m.metadata::text, '') ILIKE $2 OR COALESCE(m.filename::text, '') ILIKE $2)
           LIMIT $3
         `;
         const { rows: typeRows } = await pgClient.query(typeSql, [pair.type, pair.evidence, k]);
@@ -260,11 +251,7 @@ export async function searchNearest(query, k = 5, opts = {}) {
 
       // no exact match -> fall back to ILIKE-based filter in main query (no normalization)
       // We'll use $3 as the title filter parameter in the vector query below.
-      whereClause = `WHERE (
-        t.normalized_title ILIKE '%' || $3 || '%'
-        OR t.canonical_short ILIKE '%' || $3 || '%'
-        OR t.title_line ILIKE '%' || $3 || '%'
-      )`;
+      whereClause = `WHERE ( m.title ILIKE '%' || $3 || '%' )`;
       // pick the best variant for the ILIKE filter (helps "RA 1061" -> "Republic Act No. 1061")
       const bestVariant = chooseBestTitleVariant(variants) || searchByTitleRaw;
       log(`searchNearest: using title filter variant "${String(bestVariant)}" for query "${searchByTitleRaw}"`);
@@ -307,11 +294,9 @@ export async function searchNearest(query, k = 5, opts = {}) {
 
   const sql = `
     SELECT e.uuid, m.filename, m.relative_path,
-           t.line_index as title_lineIndex, t.title_line, t.evidence, t.type, t.id, t.normalized_title, t.confidence, t.canonical_short,
            e.embedding <-> $1::vector AS dist
     FROM embeddings e
-    LEFT JOIN embeddings_files m USING (uuid)
-    LEFT JOIN embeddings_titles t USING (uuid)
+    LEFT JOIN documents m USING (uuid)
     ${whereClause}
     ORDER BY e.embedding <-> $1::vector
     LIMIT $2

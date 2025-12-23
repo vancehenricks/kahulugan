@@ -11,7 +11,7 @@ const CORPUS_DIR = process.env.RAG_CORPUS_PATH;
 
 async function retrieveDocumentFiles(uuid) {
   return pgClient.query(
-    'SELECT filename, relative_path FROM embeddings_files WHERE uuid = $1 LIMIT 1',
+    'SELECT filename, relative_path FROM documents WHERE uuid = $1 LIMIT 1',
     [uuid]
   );
 }
