@@ -4,7 +4,7 @@ POSTGRES_USER	?= postgres
 POSTGRES_DB	?= ragdb
 INPUT_FILE	?= rag-data/embeddings.jsonl
 
-.PHONY: help build up down restart logs psql importer rebuild clean dev-setup-db server build-client client-dev lint format dev-up dev-down dev-logs dev-shell
+.PHONY: help build up down restart logs psql importer rebuild clean server build-client client-dev lint format dev-up dev-down dev-logs dev-shell
 
 help:
 	@echo "Usage:"
@@ -15,7 +15,6 @@ help:
 	@echo "  make logs             Follow logs for postgres and app"
 	@echo "  make psql             Open psql shell on production postgres"
 	@echo "  make importer         Start importer (detached). Uses Compose profile 'importer' and runs scripts/setup-db.mjs; not started by default with 'make up'"
-	@echo "  make dev-setup-db     Run scripts/setup-db.mjs inside the dev container (app-dev) via the 'dev' profile"
 	@echo "  make rebuild          Down, build, and bring up services"
 	@echo "  make clean            Stop and remove containers, networks, volumes"
 	@echo "  make server           Start the development server (watch mode)"
@@ -89,11 +88,6 @@ importer:
 	@echo "Starting importer (setup-db) detached — INPUT_FILE=$(INPUT_FILE) DOCUMENTS_FILE=$(DOCUMENTS_FILE)"
 	@echo "The importer will run in the background; follow logs with '$(DC) logs -f importer'"
 	INPUT_FILE=$(INPUT_FILE) DOCUMENTS_FILE=$(DOCUMENTS_FILE) RAG_CORPUS_PATH=$(RAG_CORPUS_PATH) $(DC) run --rm -d importer || true
-
-dev-setup-db:
-	@echo "Running setup-db inside 'app-dev' (dev profile). Ensure dev containers are running: make dev-up"
-	@echo "INPUT_FILE=$(INPUT_FILE) DOCUMENTS_FILE=$(DOCUMENTS_FILE)"
-	$(DC) --profile dev exec -e INPUT_FILE=$(INPUT_FILE) -e DOCUMENTS_FILE=$(DOCUMENTS_FILE) -e RAG_CORPUS_PATH=$(RAG_CORPUS_PATH) app-dev node scripts/setup-db.mjs || true
 
 rebuild:
 	$(DC) down

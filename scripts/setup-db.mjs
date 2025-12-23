@@ -510,12 +510,44 @@ async function insertBatch(records) {
   }
 
 async function insertDocumentsBatch(records) {
+  const MIN_DATE = '0001-01-01';
+  function sanitizeDate(d) {
+    if (d === null || typeof d === 'undefined') return MIN_DATE;
+    // Accept valid ISO date or datetime strings; reject literal 'null' or empty strings
+    if (typeof d === 'string') {
+      const s = d.trim();
+      if (s === '' || s.toLowerCase() === 'null') return MIN_DATE;
+      const ts = Date.parse(s);
+      if (!Number.isFinite(ts)) return MIN_DATE;
+      // convert to YYYY-MM-DD to avoid timezone shifts when casting
+      try {
+        const dt = new Date(ts);
+        if (isNaN(dt.getTime())) return MIN_DATE;
+        return dt.toISOString().slice(0, 10);
+      } catch {
+        return MIN_DATE;
+      }
+    }
+    // If it's a number (timestamp), try to format it
+    if (typeof d === 'number') {
+      const dt = new Date(d);
+      if (isNaN(dt.getTime())) return MIN_DATE;
+      return dt.toISOString().slice(0, 10);
+    }
+    // Fallback
+    return MIN_DATE;
+  }
+
   try {
     await client.query('BEGIN');
     for (const r of records) {
+      const dateToInsert = sanitizeDate(r.date);
+      if (dateToInsert === MIN_DATE && r.date && String(r.date).trim() !== '') {
+        console.warn(`Note: replacing invalid date value for uuid=${r.uuid} (original=${r.date}) with ${MIN_DATE}`);
+      }
       await client.query(
         `INSERT INTO documents (uuid, title, date, category, relative_path, filename, summary, metadata) VALUES ($1,$2,$3::date,$4,$5,$6,$7,$8) ON CONFLICT (uuid) DO UPDATE SET title = EXCLUDED.title, date = EXCLUDED.date, category = EXCLUDED.category, relative_path = EXCLUDED.relative_path, filename = EXCLUDED.filename, summary = EXCLUDED.summary, metadata = EXCLUDED.metadata`,
-        [r.uuid, r.title, r.date, r.category, r.relative_path, r.filename, r.summary, r.metadata ? JSON.stringify(r.metadata) : null]
+        [r.uuid, r.title, dateToInsert, r.category, r.relative_path, r.filename, r.summary, r.metadata ? JSON.stringify(r.metadata) : null]
       );
     }
     await client.query('COMMIT');
