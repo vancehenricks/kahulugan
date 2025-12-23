@@ -176,7 +176,7 @@ export async function researcherExecutePlan(plan) {
         }
       }
 
-      // Build a reduced hit object to keep token footprint small; keep original metadata
+      // Build a reduced hit object to keep token footprint small; keep original document fields
       const reducedHit = {
         ...h,
         snippet,

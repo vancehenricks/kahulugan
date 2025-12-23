@@ -67,7 +67,7 @@ async function storeSuggestions(suggestions) {
       ]);
     }
 
-    // Update or insert single metadata entry
+    // Update or insert the suggestions_meta last-updated timestamp
     await pgClient.query(
       `INSERT INTO suggestions_meta (id, date) VALUES (1, CURRENT_TIMESTAMP)
        ON CONFLICT (id) DO UPDATE SET date = CURRENT_TIMESTAMP`

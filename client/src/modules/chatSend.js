@@ -255,7 +255,7 @@ export async function sendMessage(e) {
   try {
     await ensureWsOpen();
 
-    // Build the payload for the server; include localStorage snapshot & metadata if mode === 'qa'
+    // Build the payload for the server; include localStorage snapshot & clientState if mode === 'qa'
     const basePayload = {
       type:
         currentMode === "search"
@@ -271,7 +271,7 @@ export async function sendMessage(e) {
       basePayload.perspective = window.selectedPerspectives;
     }
 
-    // If QA, include a snapshot of localStorage and client payload metadata
+    // If QA, include a snapshot of localStorage and client payload state
     if (currentMode === "qa") {
       const snapshot = snapshotLocalStorage();
       // Try to extract our message history from localStorage (used by chatMessages)
