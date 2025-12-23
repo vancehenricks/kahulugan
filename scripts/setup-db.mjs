@@ -120,17 +120,16 @@ async function createTablesWithVector(dim, createVectorIndex = true) {
     );
   `);
 
-  // Documents metadata table (store document metadata and optional summary)
+  // Documents table (store document info: title, date, filename, summary)
   await client.query(`
     CREATE TABLE IF NOT EXISTS documents (
       uuid UUID PRIMARY KEY,
       title TEXT,
-      date DATE,
+      date DATE NOT NULL DEFAULT '0001-01-01',
       category TEXT,
       relative_path TEXT,
       filename TEXT,
-      summary TEXT,
-      metadata JSONB
+      summary TEXT
     );
   `);
 
@@ -310,12 +309,11 @@ async function run() {
             CREATE TABLE IF NOT EXISTS documents (
               uuid UUID PRIMARY KEY,
               title TEXT,
-              date TIMESTAMP,
+              date DATE NOT NULL DEFAULT '0001-01-01',
               category TEXT,
               relative_path TEXT,
               filename TEXT,
-              summary TEXT,
-              metadata JSONB
+              summary TEXT
             );
           `);
           try {
@@ -339,6 +337,15 @@ async function run() {
 
     // Ensure documents table exists (use helper)
     await createDocumentsIfMissing();
+
+    // Enforce non-null date with a safe default for existing tables/rows.
+    try {
+      await client.query(`ALTER TABLE documents ALTER COLUMN date SET DEFAULT '0001-01-01'::date`);
+      await client.query(`UPDATE documents SET date = '0001-01-01' WHERE date IS NULL`);
+      await client.query(`ALTER TABLE documents ALTER COLUMN date SET NOT NULL`);
+    } catch (err) {
+      console.warn('Warning: unable to enforce documents.date NOT NULL/default:', err?.message || err);
+    }
 
     async function createSuggestionTablesIfMissing() {
       if (!suggestionsExists) {
@@ -437,7 +444,7 @@ async function run() {
       console.log(`Finished import: ${totalProcessed} inserted, ${totalSkipped} skipped`);
     }
 
-    // Import documents metadata only if DOCUMENTS_FILE is explicitly provided
+    // Import documents only if DOCUMENTS_FILE is explicitly provided
     if (DOCUMENTS_FILE) {
       if (await fileExists(DOCUMENTS_FILE)) {
         console.log('Importing documents from', DOCUMENTS_FILE);
@@ -459,7 +466,7 @@ async function run() {
           continue;
         }
         if (!obj.uuid) { skippedDocs++; continue; }
-        batchDocs.push({ uuid: obj.uuid, title: obj.title || null, date: obj.date || null, category: obj.category || null, relative_path: obj.relative_path || null, filename: obj.filename || null, summary: obj.summary || null, metadata: obj.metadata || null });
+        batchDocs.push({ uuid: obj.uuid, title: obj.title || null, date: obj.date || null, category: obj.category || null, relative_path: obj.relative_path || null, filename: obj.filename || null, summary: obj.summary || null });
         if (batchDocs.length >= BATCH_DOCS) {
           await insertDocumentsBatch(batchDocs);
           totalDocs += batchDocs.length;
@@ -499,7 +506,7 @@ async function insertBatch(records) {
           `INSERT INTO embeddings (uuid, embedding) VALUES ($1, $2::vector) ON CONFLICT (uuid) DO UPDATE SET embedding = EXCLUDED.embedding`,
           [rec.uuid, embeddingParam]
         );
-        // Note: document metadata is handled separately via DOCUMENTS_FILE import
+        // Note: documents are handled via DOCUMENTS_FILE import
         // and stored in the `documents` table.
       }
       await client.query('COMMIT');
@@ -541,13 +548,15 @@ async function insertDocumentsBatch(records) {
   try {
     await client.query('BEGIN');
     for (const r of records) {
-      const dateToInsert = sanitizeDate(r.date);
+      let dateToInsert = sanitizeDate(r.date);
+      // Ensure we never insert NULL into the NOT NULL column — use MIN_DATE as sentinel
+      if (!dateToInsert) dateToInsert = MIN_DATE;
       if (dateToInsert === MIN_DATE && r.date && String(r.date).trim() !== '') {
         console.warn(`Note: replacing invalid date value for uuid=${r.uuid} (original=${r.date}) with ${MIN_DATE}`);
       }
       await client.query(
-        `INSERT INTO documents (uuid, title, date, category, relative_path, filename, summary, metadata) VALUES ($1,$2,$3::date,$4,$5,$6,$7,$8) ON CONFLICT (uuid) DO UPDATE SET title = EXCLUDED.title, date = EXCLUDED.date, category = EXCLUDED.category, relative_path = EXCLUDED.relative_path, filename = EXCLUDED.filename, summary = EXCLUDED.summary, metadata = EXCLUDED.metadata`,
-        [r.uuid, r.title, dateToInsert, r.category, r.relative_path, r.filename, r.summary, r.metadata ? JSON.stringify(r.metadata) : null]
+        `INSERT INTO documents (uuid, title, date, category, relative_path, filename, summary) VALUES ($1,$2,$3::date,$4,$5,$6,$7) ON CONFLICT (uuid) DO UPDATE SET title = EXCLUDED.title, date = EXCLUDED.date, category = EXCLUDED.category, relative_path = EXCLUDED.relative_path, filename = EXCLUDED.filename, summary = EXCLUDED.summary`,
+        [r.uuid, r.title, dateToInsert, r.category, r.relative_path, r.filename, r.summary]
       );
     }
     await client.query('COMMIT');

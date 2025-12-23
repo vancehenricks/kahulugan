@@ -128,7 +128,7 @@ export async function searchNearest(query, k = 5, opts = {}) {
       // exist, return them immediately. Otherwise fall back to the ILIKE
       // substring+vector flow below.
       const exactSql = `
-        SELECT e.uuid, m.filename, m.relative_path
+        SELECT e.uuid, m.filename, m.relative_path, m.date
         FROM embeddings e
         LEFT JOIN documents m USING (uuid)
         WHERE trim(m.title) = trim($1)
@@ -140,6 +140,18 @@ export async function searchNearest(query, k = 5, opts = {}) {
       for (const v of variants) {
         const { rows: exactRows } = await pgClient.query(exactSql, [v, k]);
         if (exactRows && exactRows.length > 0) {
+          // Optionally sort exact matches by proximity to RAG_TODAY if provided
+          const ragToday = process.env.RAG_TODAY ? Date.parse(process.env.RAG_TODAY) : NaN;
+          if (Number.isFinite(ragToday)) {
+            exactRows.sort((a, b) => {
+              const da = Date.parse(String(a.date));
+              const db = Date.parse(String(b.date));
+              const diffA = Number.isFinite(da) ? Math.abs(da - ragToday) : Number.POSITIVE_INFINITY;
+              const diffB = Number.isFinite(db) ? Math.abs(db - ragToday) : Number.POSITIVE_INFINITY;
+              return diffA - diffB;
+            });
+          }
+
           // Return exact-match rows (read files like usual)
           const limitExact = pLimit(6);
           const exactResults = await Promise.all(
@@ -158,6 +170,7 @@ export async function searchNearest(query, k = 5, opts = {}) {
                   uuid: r.uuid,
                   filename: r.filename,
                   relative_path: r.relative_path,
+                  date: r.date || null,
                   text,
                 };
               })
@@ -173,7 +186,7 @@ export async function searchNearest(query, k = 5, opts = {}) {
       // like "A.M. No. 01-2-04-SC" when the DB stores slightly different
       // punctuation/space arrangements.
       const idSql = `
-        SELECT e.uuid, m.filename, m.relative_path
+        SELECT e.uuid, m.filename, m.relative_path, m.date
         FROM embeddings e
         LEFT JOIN documents m USING (uuid)
         WHERE lower(regexp_replace(m.title, '[.\\s]+', '', 'g')) = lower(regexp_replace($1, '[.\\s]+', '', 'g'))
@@ -184,6 +197,17 @@ export async function searchNearest(query, k = 5, opts = {}) {
       for (const v of variants) {
         const { rows: idRows } = await pgClient.query(idSql, [v, k]);
         if (idRows && idRows.length > 0) {
+          const ragToday = process.env.RAG_TODAY ? Date.parse(process.env.RAG_TODAY) : NaN;
+          if (Number.isFinite(ragToday)) {
+            idRows.sort((a, b) => {
+              const da = Date.parse(String(a.date));
+              const db = Date.parse(String(b.date));
+              const diffA = Number.isFinite(da) ? Math.abs(da - ragToday) : Number.POSITIVE_INFINITY;
+              const diffB = Number.isFinite(db) ? Math.abs(db - ragToday) : Number.POSITIVE_INFINITY;
+              return diffA - diffB;
+            });
+          }
+
           const limitId = pLimit(6);
           const idResults = await Promise.all(
             idRows.map((r) =>
@@ -201,6 +225,7 @@ export async function searchNearest(query, k = 5, opts = {}) {
                   uuid: r.uuid,
                   filename: r.filename,
                   relative_path: r.relative_path,
+                  date: r.date || null,
                   text,
                 };
               })
@@ -214,15 +239,26 @@ export async function searchNearest(query, k = 5, opts = {}) {
       const pair = extractTypeEvidence(searchByTitleRaw);
       if (pair) {
         const typeSql = `
-          SELECT e.uuid, m.filename, m.relative_path
+          SELECT e.uuid, m.filename, m.relative_path, m.date
           FROM embeddings e
           LEFT JOIN documents m USING (uuid)
           WHERE (COALESCE(m.category::text, '') ILIKE $1 OR COALESCE(m.category::text, '') ILIKE '%' || $1 || '%')
-            AND (COALESCE(m.metadata::text, '') ILIKE $2 OR COALESCE(m.filename::text, '') ILIKE $2)
+            AND (COALESCE(m.filename::text, '') ILIKE $2)
           LIMIT $3
         `;
         const { rows: typeRows } = await pgClient.query(typeSql, [pair.type, pair.evidence, k]);
         if (typeRows && typeRows.length > 0) {
+          const ragToday = process.env.RAG_TODAY ? Date.parse(process.env.RAG_TODAY) : NaN;
+          if (Number.isFinite(ragToday)) {
+            typeRows.sort((a, b) => {
+              const da = Date.parse(String(a.date));
+              const db = Date.parse(String(b.date));
+              const diffA = Number.isFinite(da) ? Math.abs(da - ragToday) : Number.POSITIVE_INFINITY;
+              const diffB = Number.isFinite(db) ? Math.abs(db - ragToday) : Number.POSITIVE_INFINITY;
+              return diffA - diffB;
+            });
+          }
+
           const limitType = pLimit(6);
           const typeResults = await Promise.all(
             typeRows.map((r) =>
@@ -240,6 +276,7 @@ export async function searchNearest(query, k = 5, opts = {}) {
                   uuid: r.uuid,
                   filename: r.filename,
                   relative_path: r.relative_path,
+                  date: r.date || null,
                   text,
                 };
               })
@@ -293,7 +330,7 @@ export async function searchNearest(query, k = 5, opts = {}) {
   }
 
   const sql = `
-    SELECT e.uuid, m.filename, m.relative_path,
+    SELECT e.uuid, m.filename, m.relative_path, m.date,
            e.embedding <-> $1::vector AS dist
     FROM embeddings e
     LEFT JOIN documents m USING (uuid)
@@ -303,6 +340,20 @@ export async function searchNearest(query, k = 5, opts = {}) {
   `;
 
   const { rows } = await pgClient.query(sql, params);
+
+  // If RAG_TODAY set, sort by absolute date proximity to RAG_TODAY (closest first).
+  const ragTodayTS = process.env.RAG_TODAY ? Date.parse(process.env.RAG_TODAY) : NaN;
+  if (Number.isFinite(ragTodayTS)) {
+    rows.sort((a, b) => {
+      const da = Date.parse(String(a.date));
+      const db = Date.parse(String(b.date));
+      const diffA = Number.isFinite(da) ? Math.abs(da - ragTodayTS) : Number.POSITIVE_INFINITY;
+      const diffB = Number.isFinite(db) ? Math.abs(db - ragTodayTS) : Number.POSITIVE_INFINITY;
+      if (diffA !== diffB) return diffA - diffB;
+      // tie-breaker: prefer smaller vector distance
+      return (a.dist || 0) - (b.dist || 0);
+    });
+  }
 
   // Only read file content for the top results, in parallel with concurrency limit
   const limit = pLimit(6); // adjust concurrency
@@ -322,6 +373,7 @@ export async function searchNearest(query, k = 5, opts = {}) {
           uuid: r.uuid,
           filename: r.filename,
           relative_path: r.relative_path,
+          date: r.date || null,
           text,
         };
       })
