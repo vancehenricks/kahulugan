@@ -109,7 +109,19 @@ export async function researcherExecutePlan(plan) {
   log('Note: Bar exam materials will be filtered out from results');
 
   const seen = new Map();
+  const filenameSeen = new Set();
   const allCitations = new Set();
+
+  function normalizeFilename(name) {
+    if (!name) return '';
+    return String(name)
+      .toLowerCase()
+      .replace(/\*+/g, '')          // strip markdown bold markers
+      .replace(/\s+/g, ' ')         // collapse whitespace
+      .replace(/^,+|,+$/g, '')      // trim leading/trailing commas
+      .replace(/[^a-z0-9._\- ]/g, '') // remove stray punctuation except underscore, dot, dash, space
+      .trim();
+  }
 
   // Filter searches by requested perspectives
   const filteredSearches = plan.searches.filter((s) => {
@@ -186,8 +198,15 @@ export async function researcherExecutePlan(plan) {
         full_text_truncated: originalText.length > (snippet || '').length,
       };
 
+      const fnameKey = normalizeFilename(h.filename || h.uuid);
+      if (filenameSeen.has(fnameKey)) {
+        log(`Skipped duplicate filename: ${h.filename || h.uuid}`);
+        continue;
+      }
+
       if (!seen.has(h.uuid)) {
         seen.set(h.uuid, reducedHit);
+        filenameSeen.add(fnameKey);
         newHits++;
         log(`Added hit (snippet ${String(reducedHit.text).length} chars): ${h.filename || h.uuid}`);
       }
@@ -204,8 +223,14 @@ export async function researcherExecutePlan(plan) {
 
     let citationNewHits = 0;
     for (const h of citationHits) {
+      const fnameKey = normalizeFilename(h.filename || h.uuid);
+      if (filenameSeen.has(fnameKey)) {
+        log(`Skipped duplicate citation filename: ${h.filename || h.uuid}`);
+        continue;
+      }
       if (!seen.has(h.uuid)) {
         seen.set(h.uuid, h);
+        filenameSeen.add(fnameKey);
         citationNewHits++;
         log(`Added citation-related hit: ${h.filename || h.uuid}`);
       }

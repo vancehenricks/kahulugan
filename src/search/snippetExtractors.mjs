@@ -21,7 +21,7 @@ export async function extractRelevantSnippet(text, query, useLLM = USE_LLM_SNIPP
     return UNKNOWN_PHRASE;
   }
 
-  // If LLM mode is enabled, try LLM extraction first; on failure, fall back to heuristics
+  // If LLM mode is enabled, try LLM extraction first; do NOT fall back to heuristics on failure.
   if (useLLM) {
     try {
       const llm = await extractRelevantSnippetWithLLM(text, query, 300);
@@ -34,14 +34,14 @@ export async function extractRelevantSnippet(text, query, useLLM = USE_LLM_SNIPP
         });
         return out;
       } else {
-        log('extractRelevantSnippet: LLM returned no reliable snippet; falling back to heuristics', {
+        log('extractRelevantSnippet: LLM returned no reliable snippet; not falling back to heuristics', {
           method: 'llm-no-snippet',
         });
-        // fall through to heuristic below
+        return UNKNOWN_PHRASE;
       }
     } catch (e) {
-      log('extractRelevantSnippet: LLM snippet attempt failed; falling back to heuristics', e?.message || e);
-      // fall through to heuristic below
+      log('extractRelevantSnippet: LLM snippet attempt failed; not falling back to heuristics', e?.message || e);
+      return UNKNOWN_PHRASE;
     }
   }
 

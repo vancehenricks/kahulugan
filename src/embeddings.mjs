@@ -128,7 +128,7 @@ export async function searchNearest(query, k = 5, opts = {}) {
       // exist, return them immediately. Otherwise fall back to the ILIKE
       // substring+vector flow below.
       const exactSql = `
-        SELECT e.uuid, m.filename, m.relative_path, m.date
+        SELECT e.uuid, m.filename, m.relative_path, m.date, m.summary
         FROM embeddings e
         LEFT JOIN documents m USING (uuid)
         WHERE trim(m.title) = trim($1)
@@ -171,6 +171,7 @@ export async function searchNearest(query, k = 5, opts = {}) {
                   filename: r.filename,
                   relative_path: r.relative_path,
                   date: r.date || null,
+                  summary: r.summary || null,
                   text,
                 };
               })
@@ -186,7 +187,7 @@ export async function searchNearest(query, k = 5, opts = {}) {
       // like "A.M. No. 01-2-04-SC" when the DB stores slightly different
       // punctuation/space arrangements.
       const idSql = `
-        SELECT e.uuid, m.filename, m.relative_path, m.date
+        SELECT e.uuid, m.filename, m.relative_path, m.date, m.summary
         FROM embeddings e
         LEFT JOIN documents m USING (uuid)
         WHERE lower(regexp_replace(m.title, '[.\\s]+', '', 'g')) = lower(regexp_replace($1, '[.\\s]+', '', 'g'))
@@ -226,6 +227,7 @@ export async function searchNearest(query, k = 5, opts = {}) {
                   filename: r.filename,
                   relative_path: r.relative_path,
                   date: r.date || null,
+                  summary: r.summary || null,
                   text,
                 };
               })
@@ -239,7 +241,7 @@ export async function searchNearest(query, k = 5, opts = {}) {
       const pair = extractTypeEvidence(searchByTitleRaw);
       if (pair) {
         const typeSql = `
-          SELECT e.uuid, m.filename, m.relative_path, m.date
+          SELECT e.uuid, m.filename, m.relative_path, m.date, m.summary
           FROM embeddings e
           LEFT JOIN documents m USING (uuid)
           WHERE (COALESCE(m.category::text, '') ILIKE $1 OR COALESCE(m.category::text, '') ILIKE '%' || $1 || '%')
@@ -277,6 +279,7 @@ export async function searchNearest(query, k = 5, opts = {}) {
                   filename: r.filename,
                   relative_path: r.relative_path,
                   date: r.date || null,
+                  summary: r.summary || null,
                   text,
                 };
               })
@@ -330,7 +333,7 @@ export async function searchNearest(query, k = 5, opts = {}) {
   }
 
   const sql = `
-    SELECT e.uuid, m.filename, m.relative_path, m.date,
+    SELECT e.uuid, m.filename, m.relative_path, m.date, m.summary,
            e.embedding <-> $1::vector AS dist
     FROM embeddings e
     LEFT JOIN documents m USING (uuid)
@@ -374,6 +377,7 @@ export async function searchNearest(query, k = 5, opts = {}) {
           filename: r.filename,
           relative_path: r.relative_path,
           date: r.date || null,
+          summary: r.summary || null,
           text,
         };
       })
