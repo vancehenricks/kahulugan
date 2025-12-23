@@ -50,9 +50,7 @@ dev-up:
 	@echo "Starting dev compose (bind-mount local directory into app)"
 	# Use a single compose file and enable the 'dev' profile to start app-dev
 	docker compose -f docker-compose.yml --profile dev up -d --build app-dev postgres
-	@echo "Starting nodemon inside app-dev (detached)"
-	# run nodemon (npm run dev) in the dev container in detached/background mode so dev-up returns
-	docker compose -f docker-compose.yml --profile dev exec -d --user node app-dev npm run dev
+	@echo "nodemon will be run by the dev service command (no manual exec required)"
 
 restart: down up
 
