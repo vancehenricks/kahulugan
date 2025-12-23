@@ -24,6 +24,7 @@ x-app-base: &app_base
     DOWNSAMPLE_DIM: ${DOWNSAMPLE_DIM}
     NODE_ENV: ${NODE_ENV:-production}
     USE_LLM_SNIPPET: ${USE_LLM_SNIPPET}
+    RAG_TODAY: ${RAG_TODAY}
 services:
   postgres:
     build:
