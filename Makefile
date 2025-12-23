@@ -52,7 +52,7 @@ dev-up:
 	docker compose -f docker-compose.yml --profile dev up -d --build app-dev postgres
 	@echo "Starting nodemon inside app-dev (detached)"
 	# run nodemon (npm run dev) in the dev container in detached/background mode so dev-up returns
-	docker compose -f docker-compose.yml --profile dev exec -d --user node app-dev npm run dev || true
+	docker compose -f docker-compose.yml --profile dev exec -d --user node app-dev npm run dev
 
 restart: down up
 
