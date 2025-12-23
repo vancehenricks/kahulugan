@@ -19,6 +19,7 @@ x-app-base: &app_base
     HARD_LIMIT: ${HARD_LIMIT}
     DATABASE_URL: "postgres://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"
     INPUT_FILE: /app/input/embeddings.jsonl
+    DOCUMENTS_FILE: /app/input/documents.jsonl
     RAG_CORPUS_PATH: /app/corpus
     DOWNSAMPLE_DIM: ${DOWNSAMPLE_DIM}
     NODE_ENV: ${NODE_ENV:-production}
@@ -53,6 +54,7 @@ services:
       - "${RAG_PORT}:${RAG_PORT}"
     volumes:
       - ${INPUT_FILE}:/app/input/embeddings.jsonl:ro
+      - ${DOCUMENTS_FILE}:/app/input/documents.jsonl:ro
       - ${RAG_CORPUS_PATH}:/app/corpus:ro
       - ${APP_DATA_PATH}:/app/data
     depends_on:
@@ -67,18 +69,12 @@ services:
       args:
         INSTALL_DEV: ${INSTALL_DEV:-false}
     environment:
-      PGHOST: ${PGHOST}
-      PGPORT: ${PGPORT}
-      PGUSER: ${PGUSER}
-      PGPASSWORD: ${PGPASSWORD}
-      PGDATABASE: ${PGDATABASE}
-      DATABASE_URL: "postgres://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"
-      INPUT_FILE: /app/input/embeddings.jsonl
-      RAG_CORPUS_PATH: /app/corpus
+      <<: *app_environment
       NODE_ENV: ${NODE_ENV:-production}
     profiles: ["importer"]
     volumes:
       - ${INPUT_FILE}:/app/input/embeddings.jsonl:ro
+      - ${DOCUMENTS_FILE}:/app/input/documents.jsonl:ro
       - ${RAG_CORPUS_PATH}:/app/corpus:ro
       - ${APP_DATA_PATH}:/app/data
     depends_on:
@@ -105,6 +101,7 @@ services:
     volumes:
       - ./:/app
       - ${INPUT_FILE}:/app/input/embeddings.jsonl:ro
+      - ${DOCUMENTS_FILE}:/app/input/documents.jsonl:ro
       - ${RAG_CORPUS_PATH}:/app/corpus:ro
       - ${APP_DATA_PATH}:/app/data
     depends_on:

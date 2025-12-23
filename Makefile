@@ -14,7 +14,7 @@ help:
 	@echo "  make restart          Restart production services"
 	@echo "  make logs             Follow logs for postgres and app"
 	@echo "  make psql             Open psql shell on production postgres"
-	@echo "  make importer         Start importer (detached). Uses Compose profile 'importer' and runs scripts/setup-db.mjs; not started by default with 'make up'"
+	@echo "  make importer         Start importer (detached). Uses Compose profile 'importer' and runs scripts/setup-db.mjs; use INPUT_FILE and/or DOCUMENTS_FILE to import JSONL; not started by default with 'make up'"
 	@echo "  make rebuild          Down, build, and bring up services"
 	@echo "  make clean            Stop and remove containers, networks, volumes (DESTRUCTIVE - set WIPE=1 to proceed)"
 	@echo "  make server           Start the development server (watch mode)"
@@ -85,9 +85,9 @@ dev-wipe:
 	@echo "Done. Volumes declared in docker-compose.yml (including postgres-data) were removed.\n"
 	
 importer:
-	@echo "Starting importer (setup-db) detached — INPUT_FILE=$(INPUT_FILE)"
+	@echo "Starting importer (setup-db) detached — INPUT_FILE=$(INPUT_FILE) DOCUMENTS_FILE=$(DOCUMENTS_FILE)"
 	@echo "The importer will run in the background; follow logs with '$(DC) logs -f importer'"
-	INPUT_FILE=$(INPUT_FILE) RAG_CORPUS_PATH=$(RAG_CORPUS_PATH) $(DC) run --rm -d importer || true
+	INPUT_FILE=$(INPUT_FILE) DOCUMENTS_FILE=$(DOCUMENTS_FILE) RAG_CORPUS_PATH=$(RAG_CORPUS_PATH) $(DC) run --rm -d importer || true
 
 rebuild:
 	$(DC) down
