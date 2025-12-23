@@ -122,8 +122,11 @@ export async function presenterPresent(question, plan, snippets) {
       }
 
       fileUrls.push(fileUrl);
-      sources.push({ fileUrl, lawName, uuid: s.uuid, filename: s.filename });
-      contextChunks.push(`##${fileUrl}\n\n${snippet}\n`);
+      const date = s.date ? String(s.date) : 'unknown';
+      const summary = s.summary ? String(s.summary) : '';
+      sources.push({ fileUrl, lawName, uuid: s.uuid, filename: s.filename, date, summary });
+      // Include date and summary metadata to allow the model to prioritize recent documents when synthesizing
+      contextChunks.push(`##${fileUrl}\nDate: ${date}\nSummary: ${summary}\n\n${snippet}\n`);
     } catch (err) {
       warn('Presenter: snippet formatting failed for snippet', s && s.filename, err?.message || err);
     }

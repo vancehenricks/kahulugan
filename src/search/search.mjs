@@ -17,17 +17,23 @@ async function interpretMatchesWithLLM(items = [], query = '') {
 
     const docsText = items
       .map(
-        (it, idx) =>
-          `DOCUMENT ${idx + 1}\nLaw: ${it.lawName}\nScore: ${typeof it.score !== 'undefined' ? it.score : 'n/a'}\nSnippet: ${it.snippet}\nURL: ${it.fileUrl}\n`
+        (it, idx) => {
+          const date = it.originalMatch && it.originalMatch.date ? String(it.originalMatch.date) : 'unknown';
+          const summary = it.originalMatch && it.originalMatch.summary ? String(it.originalMatch.summary) : '';
+          return `DOCUMENT ${idx + 1}\nLaw: ${it.lawName}\nScore: ${typeof it.score !== 'undefined' ? it.score : 'n/a'}\nDate: ${date}\nSummary: ${summary}\nSnippet: ${it.snippet}\nURL: ${it.fileUrl}\n`;
+        }
       )
       .join('\n---\n');
 
+      const RAG_TODAY = process.env.RAG_TODAY || 'N/A';
       const system = {
         role: 'system',
         content: [
           'You are a friendly, conversational legal research assistant. Use only the documents and snippets provided below; do NOT hallucinate facts or cite sources not included in the input.',
+          `Reference date: ${RAG_TODAY}. When recommending, prefer documents closest to or newer than this date (newest first).`,
           'Be warm, concise, and helpful — imagine explaining your reasoning to a colleague in plain language. Favor short sentences and clear suggestions.',
-          "Your task: Identify the top 1-5 documents most useful to answer the user's query and explain why, referencing exact snippets provided. For each recommended document, provide concise recommended next steps (1-3 actions) and any key uncertainties or additional documents needed to be more certain.",
+          "Your task: Identify the top 1-5 documents most useful to answer the user's query and explain why, referencing exact snippets and metadata provided. For each recommended document, provide concise recommended next steps (1-3 actions) and any key uncertainties or additional documents needed to be more certain.",
+          "Important: Prefer the most recently dated documents when recommending top documents (newest first). If dates are missing or equal, use relevance score as tiebreaker.",
           "Important: When referring to documents, always use the case or law name as provided in the 'Law' field. Do NOT refer to documents only by their numeric 'DOCUMENT N' identifiers. If you include any index numbers, include them alongside the law name, but prefer and prioritize the law name.",
           "Be concise: limit 'reason' to 30 words, 'brief' to 20 words, 'recommendedActions' to at most 3 short items (max 10 words each), and 'uncertainties' to at most 2 short items. Return only the JSON object—no extra commentary or explanation.",
           "Output format: JSON with keys { topDocuments: [{index, lawName, reason, supportingSnippet, recommendedActions:[], uncertainties:[]}], ranked: [indexes in order], brief: 'short 1-2 sentence friendly summary' } — the field values (reason, recommendedActions, uncertainties, brief) should use a conversational, helpful tone.",
@@ -39,7 +45,7 @@ async function interpretMatchesWithLLM(items = [], query = '') {
       content: [
         {
           type: 'text',
-          text: `Query: ${query}\n\nDocuments:\n${docsText}\n\nPlease return only valid JSON following the output format above. Use a friendly, conversational tone in all textual fields (brief, reason, recommendedActions, uncertainties). Do not include any extra commentary outside the JSON object.`,
+          text: `Reference date: ${process.env.RAG_TODAY || 'N/A'}\n\nQuery: ${query}\n\nDocuments:\n${docsText}\n\nPlease return only valid JSON following the output format above. Use a friendly, conversational tone in all textual fields (brief, reason, recommendedActions, uncertainties). Do not include any extra commentary outside the JSON object.`,
         },
       ],
     };

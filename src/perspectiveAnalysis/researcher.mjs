@@ -239,8 +239,20 @@ export async function researcherExecutePlan(plan) {
     log(`Citation follow-up: Added ${citationNewHits} new documents`);
   }
 
-  const finalResults = Array.from(seen.values());
-  log('Research plan execution completed:', finalResults.length, 'total unique results');
+  let finalResults = Array.from(seen.values());
+
+  // Sort final results by date (newest first). If date missing or invalid, treat as oldest.
+  finalResults.sort((a, b) => {
+    const da = Date.parse(String(a.date));
+    const db = Date.parse(String(b.date));
+    const na = Number.isFinite(da) ? da : Number.NEGATIVE_INFINITY;
+    const nb = Number.isFinite(db) ? db : Number.NEGATIVE_INFINITY;
+    if (nb !== na) return nb - na;
+    // Tie-breaker: prefer filename alphabetical (stable) to reduce randomness
+    return String(a.filename || '').localeCompare(String(b.filename || ''));
+  });
+
+  log('Research plan execution completed:', finalResults.length, 'total unique results (sorted by date)');
 
   return finalResults;
 }
