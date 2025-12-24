@@ -374,7 +374,7 @@ export async function answerQuestion(
     let out = String(text);
 
     // Fix malformed patterns like: [4](FILE:uuid/path.txt] -> [4](FILE:uuid/path.txt)
-    out = out.replace(/\(\s*(_?FILE_?:[^\)\]]+)\]/gi, '($1)');
+    out = out.replace(/\(\s*(_?FILE_?:[^)\]]+)\]/gi, '($1)');
 
     // Replace any markdown-style links that point to a token (FILE: or _FILE:) or a bare token with the correct index
     return out.replace(/\[([^\]]*?)\]\(([^)]+)\)/g, (match, _inner, href) => {
