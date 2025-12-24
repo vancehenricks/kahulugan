@@ -1,3 +1,5 @@
+import { validate as validateUuid } from 'uuid';
+
 import { buildContext, isUnknownResponse, UNKNOWN_PHRASE, extractSource } from '../context.mjs';
 import { log, warn } from '../logs.mjs';
 import { extractLawName } from '../search/lawNameExtractors.mjs';
@@ -21,10 +23,8 @@ export function renumberInlineCitations(text, orderedFileUrls) {
     const trimmed = s.trim();
     // common pattern: <uuid>/<filename>
     if (/^[0-9a-fA-F-]{36}\/[^\s]+$/.test(trimmed)) return true;
-    // or already has the _FILE_ prefix
-    if (/^_FILE_:[^\s]+$/.test(trimmed)) return true;
-    // Accept FILE: tokens (some outputs may omit the leading underscore)
-    if (/^FILE:[^\s]+$/.test(trimmed)) return true;
+    // accept FILE: and _FILE_: prefixes
+    if (/^(?:_?FILE_?:)[^\s]+$/i.test(trimmed)) return true;
     return false;
   }
 
@@ -32,23 +32,23 @@ export function renumberInlineCitations(text, orderedFileUrls) {
 
   // Normalize common malformed FILE token patterns produced by LLMs
   // Example: [4](FILE:uuid/path.txt]  ->  [4](FILE:uuid/path.txt)
-  out = out.replace(/\(\s*(FILE:[^)\]]+)\]/gi, '($1)');
+  out = out.replace(/\(\s*(_?FILE_?:[^\)\]]+)\]/gi, '($1)');
 
   // 1) Handle markdown links: [text](href)
   out = out.replace(/\[([^\]]*?)\]\(([^)]+)\)/g, (match, _inner, href) => {
     let canonicalHref = String(href).split('#')[0].trim();
 
-    // Accept hrefs that start with 'FILE:' (no leading underscore) and normalize them
-    if (canonicalHref.toUpperCase().startsWith('FILE:')) {
-      canonicalHref = `_FILE_:${canonicalHref.replace(/^[Ff][Ii][Ll][Ee]:/, '').replace(/^\/+/, '')}`;
+    // Normalize any leading FILE: or _FILE_: to canonical FILE: token
+    if (canonicalHref.toUpperCase().startsWith('FILE:') || canonicalHref.toUpperCase().startsWith('_FILE_:')) {
+      canonicalHref = `FILE:${canonicalHref.replace(/^_?FILE_?:/i, '').replace(/^\/+/, '')}`;
     }
 
-    // If href looks like a bare file token, canonicalize to internal token format
-    if (!canonicalHref.startsWith('_FILE_:') && looksLikeFileToken(canonicalHref)) {
-      // strip any leading slashes and ensure the _FILE_: prefix
+    // If href looks like a bare file token, canonicalize to FILE: token format
+    if (!canonicalHref.startsWith('FILE:') && looksLikeFileToken(canonicalHref)) {
+      // strip any leading slashes and ensure the FILE: prefix
       canonicalHref = canonicalHref.startsWith('FILE:')
-        ? `_FILE_:${canonicalHref.replace(/^[Ff][Ii][Ll][Ee]:/, '').replace(/^\/+/, '')}`
-        : `_FILE_:${canonicalHref.replace(/^\/+/, '')}`;
+        ? `FILE:${canonicalHref.replace(/^[Ff][Ii][Ll][Ee]:/, '').replace(/^\/+/, '')}`
+        : `FILE:${canonicalHref.replace(/^\/+/, '')}`;
     }
 
     // direct mapping
@@ -69,7 +69,7 @@ export function renumberInlineCitations(text, orderedFileUrls) {
   // 2) Handle bare bracket tokens like [uuid/filename] (no parentheses)
   out = out.replace(/\[([^\]]+?)\]/g, (match, inner) => {
     if (!looksLikeFileToken(inner)) return match;
-    const canonical = inner.trim().startsWith('_FILE_:') ? inner.trim() : `_FILE_:${inner.trim().replace(/^\/+/, '')}`;
+    const canonical = inner.trim().startsWith('FILE:') || inner.trim().startsWith('_FILE_:') ? inner.trim().replace(/^_?FILE_?:/i, 'FILE:') : `FILE:${inner.trim().replace(/^\/+/, '')}`;
     const idx = fileIdx.get(canonical);
     if (idx) return `[${idx}](${canonical})`;
     // try relaxed matching
@@ -104,7 +104,7 @@ export async function presenterPresent(question, plan, snippets) {
   log(`Party B (${parties.partyBRole}): ${parties.partyB}`);
 
   // Build a CONTEXT similar to the QnA flow: include file tokens and short
-  // snippets so the LLM can include inline citations like [_FILE_:uuid/filename].
+  // snippets so the LLM can include inline citations like FILE:uuid/filename.
   const contextChunks = [];
   const fileUrls = [];
   const sources = [];
@@ -118,6 +118,17 @@ export async function presenterPresent(question, plan, snippets) {
       // Omit sources where snippet extraction failed (UNKNOWN_PHRASE)
       if (snippet === UNKNOWN_PHRASE) {
         log('Presenter: skipping snippet/source due to UNKNOWN_PHRASE', { filename: s.filename, uuid: s.uuid });
+        continue;
+      }
+
+      // Skip entries with missing or placeholder filenames or invalid UUIDs
+      const filenameStr = (s.filename || '').toString().trim();
+      if (!filenameStr || ['filename', 'filename.txt'].includes(filenameStr.toLowerCase())) {
+        warn('Presenter: skipping snippet due to missing or placeholder filename', { filename: s.filename, uuid: s.uuid });
+        continue;
+      }
+      if (!validateUuid(s.uuid)) {
+        warn('Presenter: skipping snippet due to invalid uuid', { filename: s.filename, uuid: s.uuid });
         continue;
       }
 

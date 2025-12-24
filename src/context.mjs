@@ -8,7 +8,7 @@ export function buildContext(snippets) {
 }
 
 export function extractSource(source) {
-  const fileUrl = `_FILE_:${source.uuid}/${source.filename}.txt`;
+  const fileUrl = `FILE:${source.uuid}/${source.filename}.txt`;
   return fileUrl;
 }
 

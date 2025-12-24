@@ -111,7 +111,7 @@ export async function answerQuestion(
 
   // Build a quick fileUrlsFromMatches list so we know which tokens are already present
   const fileUrlsFromMatches = sources
-    .map((s) => (s && s.fileUrl ? String(s.fileUrl).trim() : (s && s.uuid ? `_FILE_:${s.uuid}/${(s.filename || '').replace(/^\//, '')}` : null)))
+    .map((s) => (s && s.fileUrl ? String(s.fileUrl).trim() : (s && s.uuid ? `FILE:${s.uuid}/${(s.filename || '').replace(/^\//, '')}` : null)))
     .filter(Boolean);
 
   // --- MOVED: compute serialized client state BEFORE we extract tokens from it ---
@@ -119,8 +119,8 @@ export async function answerQuestion(
 
   // Note: assistant-message validation was removed earlier; no helper is required here.
 
-  // Extract any _FILE_ tokens mentioned in the client state (sanitized short form)
-  const clientStateTokens = Array.from(new Set((String(clientStateStr || '').match(/_FILE_:[^\s)]+/g) || [])));
+  // Extract any FILE: or _FILE_: tokens mentioned in the client state (sanitized short form)
+  const clientStateTokens = Array.from(new Set((String(clientStateStr || '').match(/(?:_FILE_:|FILE:)[^\s)]+/g) || [])));
 
   log('Client state for QnA:', clientStateStr);
 
@@ -144,7 +144,7 @@ export async function answerQuestion(
 
         // prefer DB filename if available; ensure token includes .txt
         const canonicalFilename = (fetched.filename || (t.split('/').pop() || '')).replace(/^\//, '').replace(/\.txt$/, '');
-        const canonicalToken = `_FILE_:${fetched.uuid || t.replace(/^_FILE_:/, '').split('/')[0]}/${canonicalFilename}.txt`;
+        const canonicalToken = `FILE:${fetched.uuid || t.replace(/^_?FILE_?:/i, '').split('/')[0]}/${canonicalFilename}.txt`; 
 
         // Append to sources and context (after match-derived chunks)
         sources.push({ fileUrl: canonicalToken, lawName, uuid: fetched.uuid, filename: canonicalFilename });
@@ -296,7 +296,7 @@ export async function answerQuestion(
       `When multiple sources conflict, prioritize information from the most recently dated documents relative to the reference date and call out where the answer depends on a more recent source.`,
 
       `If there is absolutely no context or relevant information upon which to base any reasonable interpretation, respond exactly with: "${UNKNOWN_PHRASE}"`,
-      'Cite supporting source(s) using numbered inline Markdown link citations in the exact format [1](_FILE_:75816fa8-7257-4ca6-a00e-1b844f53612c/pd_486_1974.txt). Do NOT insert spaces or line breaks inside the parentheses of the link; the link target must match the `_FILE_:<uuid>/<filename>` token format exactly. For each inline [n] you use, ensure the link target is an HTTP(S) URL or the internal `_FILE_:<uuid>/<filename>` token. Do NOT include a separate "SOURCES" mapping in the answer; the application will provide the source mapping outside of the LLM output.',
+      'Cite supporting source(s) using numbered inline Markdown link citations in the exact format [1](FILE:75816fa8-7257-4ca6-a00e-1b844f53612c/pd_486_1974.txt). Do NOT insert spaces or line breaks inside the parentheses of the link; the link target must match the `FILE:<uuid>/<filename>` token format exactly. For each inline [n] you use, ensure the link target is an HTTP(S) URL or the internal `FILE:<uuid>/<filename>` token. Do NOT include a separate "SOURCES" mapping in the answer; the application will provide the source mapping outside of the LLM output.',
       'Provide a concise summary answer, followed by 1-3 recommended next steps if applicable.',
       'Client state (if provided) contains USER and ASSISTANT messages. Treat USER messages as primary short-term memory (preferences, clarifications); ASSISTANT messages are trusted short-term memory and should be used to interpret prior assistant conclusions. Do NOT treat CLIENT_STATE as a source of law or facts.',
       "Answer in a conversational, human-friendly tone: use 'you', short clear sentences, and avoid dense legal jargon where possible.",
@@ -349,13 +349,13 @@ export async function answerQuestion(
   const answer = (raw || '').toString().trim() || UNKNOWN_PHRASE;
 
   // For front-end display: return simplified sources array (file URLs)
-  // Ensure the UI receives the internal _FILE_:<uuid>/<filename> token format wherever possible
+  // Ensure the UI receives the internal FILE:<uuid>/<filename> token format wherever possible
   const fileUrls = sources
     .map((s) => {
       if (s && s.uuid) {
         // Ensure filename exists and escape slashes if present
         const filename = (s.filename || '').replace(/^\//, '');
-        return `_FILE_:${s.uuid}/${filename || s.uuid}`;
+        return `FILE:${s.uuid}/${filename || s.uuid}`;
       }
       // fall back to any provided fileUrl string
       if (s && s.fileUrl) return s.fileUrl;
@@ -374,20 +374,20 @@ export async function answerQuestion(
     let out = String(text);
 
     // Fix malformed patterns like: [4](FILE:uuid/path.txt] -> [4](FILE:uuid/path.txt)
-    out = out.replace(/\(\s*(FILE:[^)\]]+)\]/gi, '($1)');
+    out = out.replace(/\(\s*(_?FILE_?:[^\)\]]+)\]/gi, '($1)');
 
-    // Replace any markdown-style links that point to an _FILE_:/FILE:/bare-token with the correct index
+    // Replace any markdown-style links that point to a token (FILE: or _FILE:) or a bare token with the correct index
     return out.replace(/\[([^\]]*?)\]\(([^)]+)\)/g, (match, _inner, href) => {
       let canonicalHref = String(href).split('#')[0].trim();
 
-      // Normalize FILE: (no underscore) to internal _FILE_: token
-      if (canonicalHref.toUpperCase().startsWith('FILE:')) {
-        canonicalHref = `_FILE_:${canonicalHref.replace(/^[Ff][Ii][Ll][Ee]:/, '').replace(/^\/+/, '')}`;
+      // Normalize to canonical FILE: token (accept _FILE_:) so keys match our fileUrls
+      if (canonicalHref.toUpperCase().startsWith('FILE:') || canonicalHref.toUpperCase().startsWith('_FILE_:')) {
+        canonicalHref = `FILE:${canonicalHref.replace(/^_?FILE_?:/i, '').replace(/^\/+/, '')}`;
       }
 
-      // direct mapping for existing _FILE_ tokens
+      // direct mapping for existing FILE: tokens
       const idx = fileIdx.get(canonicalHref);
-      if (idx) return `[${idx}](${href})`;
+      if (idx) return `[${idx}](${canonicalHref})`;
 
       // Try relaxed matching: sometimes the model may have included or omitted a leading slash
       for (const [key, value] of fileIdx.entries()) {

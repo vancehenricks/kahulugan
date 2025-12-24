@@ -3,7 +3,7 @@ import path from 'path';
 
 import { warn } from '../logs.mjs';
 
-// Try to resolve tokens like `_FILE_:<uuid>/<filename>` to local files or HTTP URLs.
+// Try to resolve tokens like `FILE:<uuid>/<filename>` or `_FILE_:<uuid>/<filename>` to local files or HTTP URLs.
 // This is intentionally pragmatic: it looks for likely files under the repo `output/` and `corpus/`
 // and falls back to a direct file path or HTTP(S) fetch. It returns an object with
 // `{ uuid, filename, content }` or `null` if nothing could be found.
@@ -43,9 +43,9 @@ export async function fetchSnippetForToken(token, _question = null) {
       }
     }
 
-    // Support internal token format: _FILE_:uuid/relative/path/to/file.txt
-    if (t.startsWith('_FILE_:')) {
-      const remainder = t.replace(/^_FILE_:/, '');
+    // Support internal token format: FILE: or _FILE_: uuid/relative/path/to/file.txt
+    if (/^_?FILE_?:/i.test(t)) {
+      const remainder = t.replace(/^_?FILE_?:/i, '');
       const parts = remainder.split('/');
       const uuid = parts.shift();
       const filename = parts.join('/') || uuid;

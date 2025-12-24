@@ -53,7 +53,7 @@ export function applyMessageContentEnhancements(container, text, sources = [], s
   if (!bubble) return [];
 
   // build combined sources and highlight
-  const tokens = (typeof text === "string" ? text.match(/_FILE_:([^\s)>\]]+)/gi) || [] : []);
+  const tokens = (typeof text === "string" ? text.match(/(?:_FILE_:|FILE:)([^\s)>\]]+)/gi) || [] : []);
   const combinedSources = (Array.isArray(sources) ? sources : []).concat(tokens).filter(Boolean);
   const messageHighlightTerms = extractHighlightTerms(text);
   const encodedHighlights = encodeURIComponent(JSON.stringify(messageHighlightTerms || []));

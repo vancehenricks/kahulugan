@@ -9,8 +9,8 @@ import { loadFileContent, setHighlightTerms } from "./fileViewer.js";
 const STORAGE_KEY = "rag_chat_messages";
 const MAX_MESSAGES = 100;
 
-// Find _FILE_: tokens embedded anywhere in the provided text (markdown or plain)
-const FILE_TOKEN_REGEX = /_FILE_:([^\s)>\]]+)/gi;
+// Find FILE: or _FILE_: tokens embedded anywhere in the provided text (markdown or plain)
+const FILE_TOKEN_REGEX = /(?:_FILE_:|FILE:)([^\s)>\]]+)/gi;
 function extractFileTokensFromText(text) {
   if (!text || typeof text !== "string") return [];
   const tokens = new Set();
@@ -66,7 +66,7 @@ function handleSourceClick(e, url, filename, explicitHighlights) {
     setHighlightTerms(highlights);
   }
 
-  // All sources (whether from server or localStorage) use the same _FILE_:uuid/filename format
+  // All sources (whether from server or localStorage) use the same FILE:uuid/filename format
   loadFileContent(url, filename);
 }
 
@@ -309,9 +309,9 @@ export function parseFileSource(source) {
     return { uuid: "unknown", filename: String(source), url: String(source) };
   }
 
-  // Handle _FILE_: token format (from both server and localStorage)
-  if (typeof source === "string" && source.startsWith("_FILE_:")) {
-    const content = source.slice("_FILE_:".length);
+  // Handle FILE: or _FILE_: token formats (from both server and localStorage)
+  if (typeof source === "string" && (/^_?FILE_?:/i.test(source))) {
+    const content = source.replace(/^_?FILE_?:/i, '');
     const parts = content.split("/");
     const uuid = parts[0];
     const filename = parts.slice(1).join("/") || uuid;

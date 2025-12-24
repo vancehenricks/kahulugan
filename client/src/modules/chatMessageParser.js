@@ -1,4 +1,4 @@
-export const FILE_TOKEN_REGEX = /_FILE_:([^\s)>\]]+)/gi;
+export const FILE_TOKEN_REGEX = /(?:_FILE_:|FILE:)([^\s)>\]]+)/gi;
 
 export function extractFileTokensFromText(text) {
   if (!text || typeof text !== "string") return [];
@@ -37,14 +37,14 @@ export function mergeAndDedupeSources(arrSources = [], textTokens = []) {
   return out;
 }
 
-// parse _FILE_: tokens to { uuid, filename, url }
+// token form: FILE:uuid/filename or _FILE_: form (client & server sources)
 export function parseFileSource(source, serverBaseUrl = '') {
   if (!source) {
     return { uuid: "unknown", filename: String(source), url: String(source) };
   }
 
-  if (typeof source === "string" && source.startsWith("_FILE_:")) {
-    const content = source.slice("_FILE_:".length);
+  if (typeof source === "string" && (/^_?FILE_?:/i.test(source))) {
+    const content = source.replace(/^_?FILE_?:/i, '');
     const parts = content.split("/");
     const uuid = parts[0];
     const filename = parts.slice(1).join("/") || uuid;

@@ -84,7 +84,7 @@ export async function generatePerspective({
       // so that answers can include clickable references to the source files.
       // Use the same inline link format used by the QnA flow.
       // eslint-disable-next-line no-useless-escape
-      'Cite supporting source(s) using numbered inline link citations that are clickable Markdown links in the format [n](_FILE_:uuid/filename.txt) (e.g., [1](_FILE_:uuid/filename.txt), [2](_FILE_:uuid/filename2.txt), [3](_FILE_:uuid/filename.txt) etc..).',
+      'Cite supporting source(s) using numbered inline link citations that are clickable Markdown links in the format [n](FILE:uuid/filename.txt) (e.g., [1](FILE:uuid/filename.txt), [2](FILE:uuid/filename2.txt), [3](FILE:uuid/filename.txt) etc..).',
       `Context: Use only the provided CONTEXT to make factual claims, cite statutes, case names, and dates.`,
       `Reference date: ${today || process.env.RAG_TODAY || 'N/A'}. When multiple sources conflict, prioritize information from the most recently dated documents relative to this reference date and explicitly note where recommendations depend on newer materials.`,
       // Prevent the model from echoing internal labels or square-bracketed section markers
