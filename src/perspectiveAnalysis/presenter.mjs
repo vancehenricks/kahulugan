@@ -1,7 +1,6 @@
-import { validate as validateUuid } from 'uuid';
-
 import { buildContext, isUnknownResponse, UNKNOWN_PHRASE, extractSource } from '../context.mjs';
 import { log, warn } from '../logs.mjs';
+import { validate as validateUuid } from 'uuid';
 import { extractLawName } from '../search/lawNameExtractors.mjs';
 import { extractRelevantSnippet, formatSnippet, formatLawName } from '../search/snippetExtractors.mjs';
 
@@ -32,7 +31,7 @@ export function renumberInlineCitations(text, orderedFileUrls) {
 
   // Normalize common malformed FILE token patterns produced by LLMs
   // Example: [4](FILE:uuid/path.txt]  ->  [4](FILE:uuid/path.txt)
-  out = out.replace(/\(\s*(_?FILE_?:[^)\]]+)\]/gi, '($1)');
+  out = out.replace(/\(\s*(_?FILE_?:[^\)\]]+)\]/gi, '($1)');
 
   // 1) Handle markdown links: [text](href)
   out = out.replace(/\[([^\]]*?)\]\(([^)]+)\)/g, (match, _inner, href) => {

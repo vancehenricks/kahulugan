@@ -86,7 +86,7 @@ export async function generatePerspective({
       // eslint-disable-next-line no-useless-escape
       'Cite supporting source(s) using numbered inline link citations that are clickable Markdown links in the format [n](FILE:uuid/filename.txt) (e.g., [1](FILE:uuid/filename.txt), [2](FILE:uuid/filename2.txt), [3](FILE:uuid/filename.txt) etc..).',
       `Context: Use only the provided CONTEXT to make factual claims, cite statutes, case names, and dates.`,
-      `Reference date: ${today || process.env.RAG_TODAY || 'N/A'}. When multiple sources conflict, prioritize information from the most recently dated documents relative to this reference date and explicitly note where recommendations depend on newer materials.`,
+      `Reference date: ${today || process.env.RAG_TODAY || 'N/A'}. When multiple sources conflict, always prioritize information from the most recently dated documents relative to this reference date (newest first); when forming conclusions or recommendations, base them on the newest documents and explicitly state where a conclusion or recommendation depends on a more recent source.`, 
       // Prevent the model from echoing internal labels or square-bracketed section markers
       'Do NOT include the literal tags "[CONTEXT]" or "[Scenario]" or other square-bracketed section headings in your output. If you need to refer to the context or scenario, paraphrase in plain text (e.g., "from the provided context").',
       'Summary: Do NOT hallucinate or invent facts. If the CONTEXT lacks key facts to support a claim, respond exactly with: ' +
@@ -100,8 +100,8 @@ export async function generatePerspective({
       '3. Recommendations / Relief: practical steps or remedies and how the cited laws would support them. List 3-5 prioritized recommendations: (a) immediate steps, (b) mid-term actions, and (c) contingency/defensive options. For each recommendation, indicate the supporting law or specific passage in CONTEXT and an estimated urgency/priority.',
       '4. Key Uncertainties: facts/documents needed to be more certain (identify what to collect or verify in CONTEXT).',
       'Avoid conversational openings and filler; be precise and cite only what exists in CONTEXT.',
-      'Use only the provided CONTEXT for facts or citations.',
-      `Context summary (short): ${contextSnippet}`,
+      'Use only the provided CONTEXT for facts or citations. When drawing conclusions, prioritize evidence from the most recently dated CONTEXT items and call out when a conclusion depends on a newer document.',
+      `Context summary (short): ${contextSnippet}`, 
     ].join(' '),
   };
 
