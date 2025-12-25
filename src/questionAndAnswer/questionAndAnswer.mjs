@@ -353,11 +353,22 @@ export async function answerQuestion(
   const fileUrls = sources
     .map((s) => {
       if (s && s.uuid) {
-        // Ensure filename exists and escape slashes if present
-        const filename = (s.filename || '').replace(/^\//, '');
-        return `FILE:${s.uuid}/${filename || s.uuid}`;
+        // Ensure filename exists, escape slashes, and always include a .txt extension
+        let filename = (s.filename || '').replace(/^\//, '');
+        if (!filename) filename = `${s.uuid}.txt`;
+        else if (!/\.txt$/i.test(filename)) filename = `${filename}.txt`;
+        return `FILE:${s.uuid}/${filename}`;
       }
-      // fall back to any provided fileUrl string
+
+      // fall back to any provided fileUrl string; normalize internal FILE: tokens to ensure .txt
+      if (s && s.fileUrl && typeof s.fileUrl === 'string' && s.fileUrl.toUpperCase().startsWith('FILE:')) {
+        const raw = s.fileUrl.replace(/^_?FILE_?:/i, '').replace(/^\/+/, '');
+        const [uuid, ...rest] = raw.split('/');
+        let filename = (rest.join('/') || `${uuid}.txt`).replace(/^\//, '');
+        if (!/\.txt$/i.test(filename)) filename = `${filename}.txt`;
+        return `FILE:${uuid}/${filename}`;
+      }
+
       if (s && s.fileUrl) return s.fileUrl;
       return null;
     })
@@ -375,6 +386,27 @@ export async function answerQuestion(
 
     // Fix malformed patterns like: [4](FILE:uuid/path.txt] -> [4](FILE:uuid/path.txt)
     out = out.replace(/\(\s*(_?FILE_?:[^)\]]+)\]/gi, '($1)');
+
+    // Convert bare numeric citations like [1] or [1, 2] into explicit FILE links when possible.
+    // We skip conversion if the bracket is already immediately followed by '(' (it's already a link).
+    out = out.replace(/\[(\s*\d+(?:\s*,\s*\d+)*)\]/g, (match, nums, offset, string) => {
+      // If this bracketed group is already followed by '(' it's likely a proper markdown link: skip converting
+      if (string[offset + match.length] === '(') return match;
+      const parts = nums.split(',').map((s) => s.trim()).filter(Boolean);
+      const converted = parts.map((numStr) => {
+        const n = parseInt(numStr, 10);
+        if (!Number.isFinite(n)) return `[${numStr}]`;
+        const url = orderedFileUrls[n - 1];
+        if (url) return `[${n}](${url})`;
+        return `[${n}]`;
+      });
+      // Only replace if at least one number could be mapped to a URL
+      if (converted.some((c) => /\(FILE:/i.test(c))) {
+        log('QnA: converted bare numeric citation to FILE links', { original: match, converted: converted.join(', ') });
+        return converted.join(', ');
+      }
+      return match; // leave unchanged if no mapping
+    });
 
     // Replace any markdown-style links that point to a token (FILE: or _FILE:) or a bare token with the correct index
     return out.replace(/\[([^\]]*?)\]\(([^)]+)\)/g, (match, _inner, href) => {
