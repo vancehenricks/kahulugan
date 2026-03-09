@@ -1,6 +1,7 @@
+import { validate as validateUuid } from 'uuid';
+
 import { buildContext, isUnknownResponse, UNKNOWN_PHRASE, extractSource } from '../context.mjs';
 import { log, warn } from '../logs.mjs';
-import { validate as validateUuid } from 'uuid';
 import { extractLawName } from '../search/lawNameExtractors.mjs';
 import { extractRelevantSnippet, formatSnippet, formatLawName } from '../search/snippetExtractors.mjs';
 
