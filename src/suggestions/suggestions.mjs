@@ -5,14 +5,6 @@ import { pgClient } from '../db.mjs';
 import { openai } from '../llm.mjs';
 import { log, warn } from '../logs.mjs';
 
-const CACHE_DURATION_DAYS = 7;
-
-// We intentionally do not perform any external scraping.
-// For predictability and privacy, suggestions are generated from a generic
-// Philippine-focused prompt rather than fetching current headlines.
-
-// No external scraping: we will generate generic Philippine-focused examples.
-
 async function getCachedSuggestions() {
   try {
     const result = await pgClient.query(`SELECT date FROM suggestions_meta WHERE id = 1`);
@@ -21,17 +13,9 @@ async function getCachedSuggestions() {
       return null;
     }
 
-    const cachedDate = new Date(result.rows[0].date);
-    const now = new Date();
-    const daysDiff = Math.floor((now - cachedDate) / (1000 * 60 * 60 * 24));
-
-    if (daysDiff < CACHE_DURATION_DAYS) {
-      log(`Using cached suggestions from ${daysDiff} days ago`);
-      return true;
-    }
-
-    log(`Cache expired (${daysDiff} days old), fetching new suggestions`);
-    return null;
+    // we don't expire cache; as long as a row exists we'll keep using it
+    log('Using cached suggestions (no expiration)');
+    return true;
   } catch (error) {
     warn('Failed to check cache:', error.message);
     return null;
